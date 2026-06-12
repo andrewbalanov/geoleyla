@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#26413a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Geo-Академия Лейлы · путь в Оксфорд</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b4a41'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f1f3ee' stroke-width='3'/%3E%3Cellipse cx='32' cy='32' rx='9' ry='20' fill='none' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Cpath d='M12 32h40M15 22h34M15 42h34' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Ctext x='32' y='40' font-size='20' text-anchor='middle'%3E%E2%9D%A4%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/maplibre-gl.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===================== МЕНЮ ===================== -->
+<div class="screen active board" id="screen-menu">
+  <svg id="menu-map" aria-hidden="true"></svg>
+  <div class="menu-frame" aria-hidden="true"></div>
+  <div class="menu-scroll">
+    <header class="hero">
+      <div class="portrait">
+        <div class="portrait-frame">
+          <div id="leyla-photo" class="leyla-photo" title="Загрузить фото">
+            <span class="photo-hint">♥<br><small>фото</small></span>
+          </div>
+        </div>
+        <div class="portrait-plate">Лейла · почётный член клуба ♥</div>
+      </div>
+      <div class="hero-text">
+        <div class="club-crest">✦ ✦ ✦</div>
+        <div class="club-line">The Oxford &amp; Cambridge</div>
+        <h1 class="game-title">Географический клуб</h1>
+        <div class="club-sub">имени любимой <span class="hero-name">Лейлы</span></div>
+        <div class="oxford-badge">🎓 Учреждён в честь будущей студентки Оксфорда · Est. MMXXVI</div>
+      </div>
+    </header>
+    <input type="file" id="leyla-file" accept="image/*" hidden>
+    <div id="h2h" class="h2h"></div>
+    <div id="online-banner" class="online-banner" style="display:none"></div>
+    <div id="mode-list"></div>
+    <div class="club-footer-note">Экспедиции клуба · выберите дисциплину</div>
+  </div>
+  <div class="menu-footer">
+    <button id="btn-trophy" class="glass-btn" title="Общий счёт">🏆</button>
+    <button class="btn-music glass-btn" title="Музыка">🎵</button>
+    <button class="btn-music-next glass-btn" title="Следующий трек">⏭</button>
+    <button class="btn-mute glass-btn" title="Звуки игры">🔊</button>
+    <button id="btn-info" class="glass-btn" title="Как играть">𝒊</button>
+  </div>
+</div>
+
+<!-- ===================== ОНЛАЙН-ДУЭЛЬ ===================== -->
+<div class="screen board" id="screen-online">
+  <div class="setup-inner">
+    <h2>🌐 Онлайн-дуэль</h2>
+    <p class="online-hint">Играйте вдвоём с разных компьютеров и телефонов. Один создаёт комнату и говорит код, второй вводит код — и вперёд!</p>
+
+    <div class="setup-row">
+      <label>Твоё имя</label>
+      <input id="inp-online-name" maxlength="14" class="p1" placeholder="Лейла">
+    </div>
+
+    <div class="online-actions">
+      <button class="btn-big btn-orange" id="btn-host-room">Создать комнату</button>
+      <button class="btn-big" id="btn-show-join">У меня есть код</button>
+    </div>
+
+    <div id="online-host-sec" style="display:none">
+      <div class="online-code-label">Код комнаты:</div>
+      <div id="online-code" class="online-code">· · · ·</div>
+      <button class="btn-big btn-invite" id="btn-copy-invite" style="display:none">💌 Скопировать ссылку-приглашение</button>
+      <div id="online-host-status" class="online-status"></div>
+    </div>
+
+    <div id="online-join-sec" style="display:none">
+      <div class="setup-row">
+        <label>Код комнаты</label>
+        <input id="inp-join-code" maxlength="4" class="code-input" placeholder="A B C D" autocomplete="off">
+      </div>
+      <button class="btn-big btn-orange" id="btn-join-room">Подключиться</button>
+      <div id="online-join-status" class="online-status"></div>
+    </div>
+
+    <button class="btn-ghost" id="btn-online-back">‹ Назад в меню</button>
+  </div>
+</div>
+
+<!-- ===================== НАСТРОЙКА МАТЧА ===================== -->
+<div class="screen board" id="screen-setup">
+  <div class="setup-inner">
+    <h2 id="setup-title">Режим</h2>
+    <div id="setup-online-note" class="online-hint" style="display:none"></div>
+
+    <div class="setup-row" id="row-players">
+      <label>Игроки</label>
+      <div class="seg" id="seg-players">
+        <button data-val="1">Один</button>
+        <button data-val="2" class="on">Дуэль · 2</button>
+      </div>
+    </div>
+
+    <div class="setup-row" id="row-p1">
+      <label>Имя игрока 1</label>
+      <input id="inp-p1" maxlength="14" class="p1" placeholder="Лейла">
+    </div>
+    <div class="setup-row" id="row-p2">
+      <label>Имя игрока 2</label>
+      <input id="inp-p2" maxlength="14" class="p2" placeholder="Андрей">
+    </div>
+
+    <div class="setup-row">
+      <label>Вопросов</label>
+      <div class="seg seg-wrap" id="seg-nq">
+        <button data-val="5">5</button>
+        <button data-val="10" class="on">10</button>
+        <button data-val="20">20</button>
+        <button data-val="50">50</button>
+        <button data-val="100">100</button>
+        <button data-val="all">Все</button>
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <label>Время на ответ</label>
+      <div class="seg" id="seg-timer">
+        <button data-val="0">∞</button>
+        <button data-val="15">15 сек</button>
+        <button data-val="30" class="on">30 сек</button>
+        <button data-val="60">60 сек</button>
+      </div>
+    </div>
+
+    <div class="setup-row" id="row-diff">
+      <label>Сложность</label>
+      <div class="seg" id="seg-diff">
+        <button data-val="top" class="on">Известные</button>
+        <button data-val="all">Все страны</button>
+      </div>
+    </div>
+
+    <div class="setup-row" id="row-cards">
+      <label>Карточки-справки об объектах</label>
+      <div class="seg" id="seg-cards">
+        <button data-val="on" class="on">Показывать</button>
+        <button data-val="off">Выкл</button>
+      </div>
+    </div>
+
+    <div class="setup-row" id="row-region">
+      <label>Континент</label>
+      <div class="seg seg-wrap" id="seg-region">
+        <button data-val="all" class="on">Весь мир</button>
+        <button data-val="Европа">Европа</button>
+        <button data-val="Азия">Азия</button>
+        <button data-val="Африка">Африка</button>
+        <button data-val="Америка">Америка</button>
+        <button data-val="Океания">Океания</button>
+      </div>
+    </div>
+
+    <button class="btn-big btn-orange" id="btn-start">ИГРАТЬ ▶</button>
+    <button class="btn-ghost" id="btn-back-menu">‹ Назад в меню</button>
+  </div>
+</div>
+
+<!-- ===================== ИГРА (карта на весь экран) ===================== -->
+<div class="screen" id="screen-game">
+  <div id="map-wrap">
+    <div id="map-stage">
+      <div id="choice-wrap" class="board" style="display:none">
+        <div id="choice-flags"></div>
+        <div class="choice-shelf"></div>
+      </div>
+    </div>
+    <div class="zoom-controls">
+      <button id="btn-zoom-in">+</button>
+      <button id="btn-zoom-out">−</button>
+      <button id="btn-zoom-world">🌍</button>
+    </div>
+    <button id="btn-confirm">Подтверждаю ✔</button>
+
+    <div id="reveal-panel">
+      <div id="reveal-title"></div>
+      <div id="reveal-rows"></div>
+      <button class="btn-ghost" id="btn-card" style="display:none">📖 Об объекте подробнее</button>
+      <button class="btn-big btn-orange" id="btn-next">Дальше ›</button>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button id="btn-quit" title="Выйти">✕</button>
+        <div id="q-progress">1 / 10</div>
+      </div>
+      <div id="q-card" class="q-card"></div>
+      <div class="topbar-right">
+        <div id="score-chips"></div>
+        <button class="btn-music" title="Музыка">🎵</button>
+        <button class="btn-mute" title="Звук">🔊</button>
+      </div>
+    </div>
+    <div id="turnbar"></div>
+    <div id="timer-wrap"><div id="timer-bar"></div></div>
+    <div id="map-hint">👆 Коснись карты, чтобы поставить метку</div>
+  </div>
+
+  <div id="overlay-handoff">
+    <div class="handoff-card">
+      <div id="handoff-sub">Передай устройство</div>
+      <div id="handoff-name">Игрок</div>
+      <button class="btn-big" id="handoff-go">Поехали!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ИТОГИ ===================== -->
+<div class="screen board" id="screen-results">
+  <div class="results-inner">
+    <div id="result-mode" class="result-mode"></div>
+    <h2 id="result-headline"></h2>
+    <div id="result-score" class="result-score"></div>
+    <div id="result-h2h" class="result-h2h"></div>
+    <div class="result-table-wrap">
+      <table id="result-table"></table>
+    </div>
+    <button class="btn-big btn-orange" id="btn-rematch">⚔ Реванш</button>
+    <button class="btn-ghost" id="btn-results-menu">В меню</button>
+  </div>
+</div>
+
+<!-- ===================== ОВЕРЛЕИ ===================== -->
+<div class="overlay" id="overlay-trophy">
+  <div class="overlay-card">
+    <h3>🏆 Общий счёт</h3>
+    <div id="trophy-list"></div>
+    <button class="btn-big btn-orange btn-close">Закрыть</button>
+  </div>
+</div>
+<div class="overlay" id="overlay-info">
+  <div class="overlay-card">
+    <h3>Как играть</h3>
+    <p>Оба игрока отвечают на <b>один и тот же вопрос</b>. На одном устройстве — по очереди: первый ставит метку, его ответ скрывается, передай устройство второму. Онлайн — одновременно, каждый у себя.</p>
+    <p>🎯 Попадание в цель — 1000 очков, дальше — меньше. Общий счёт побед сохраняется.</p>
+    <p class="info-leyla">Цель академии: чтобы Лейла знала географию лучше всех в Оксфорде 🎓♥</p>
+    <button class="btn-big btn-orange btn-close">Понятно</button>
+  </div>
+</div>
+<div class="overlay" id="overlay-net">
+  <div class="overlay-card">
+    <h3>🌐 Онлайн</h3>
+    <p id="net-drop-text">Соединение потеряно</p>
+    <button class="btn-big btn-orange" id="btn-net-menu">В меню</button>
+  </div>
+</div>
+<div class="overlay" id="overlay-infocard">
+  <div class="overlay-card infocard">
+    <img id="card-img" alt="">
+    <h3 id="card-title"></h3>
+    <div id="card-sub" class="card-sub"></div>
+    <div id="card-cap" class="card-cap"></div>
+    <p id="card-text"></p>
+    <div id="card-wines"></div>
+    <button class="btn-big btn-orange btn-close">Продолжить ›</button>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script src="js/lib/d3.min.js"></script>
+<script src="js/lib/topojson-client.min.js"></script>
+<script src="js/lib/maplibre-gl.js"></script>
+<script src="js/lib/peerjs.min.js"></script>
+<script src="js/data/mapstyle.js"></script>
+<script src="js/data/mapstyle_terrain.js"></script>
+<script src="js/data/world.js"></script>
+<script src="js/data/countries.js"></script>
+<script src="js/data/places.js"></script>
+<script src="js/data/monuments.js"></script>
+<script src="js/data/places2.js"></script>
+<script src="js/data/monuments2.js"></script>
+<script src="js/data/areas.js"></script>
+<script src="js/data/wine.js"></script>
+<script src="js/data/info.js"></script>
+<script src="js/data/photos.js"></script>
+<script src="js/data/france.js"></script>
+<script src="js/data/usa.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/music.js"></script>
+<script src="js/map.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
