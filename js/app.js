@@ -1119,7 +1119,7 @@
   }
 
   function renderH2H2(el) {
-    if (G.players.length !== 2) { el.textContent = ""; return; }
+    if (!G || G.players.length !== 2) { el.textContent = ""; return; }
     var h = store("gm_h2h") || {};
     var rec = h[h2hKey(G.players[0].name, G.players[1].name)];
     if (!rec) { el.textContent = ""; return; }
