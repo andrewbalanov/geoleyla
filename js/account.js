@@ -186,13 +186,14 @@ window.Account = (function () {
   }
 
   function leaderboard() {
-    return withTimeout(db.collection("users").orderBy("totalScore", "desc").limit(50).get(), 9000).then(function (snap) {
+    return withTimeout(db.collection("users").orderBy("totalScore", "desc").limit(60).get(), 9000).then(function (snap) {
       var rows = [];
       snap.forEach(function (d) {
         var v = d.data();
-        rows.push({ uid: d.id, nick: v.nick, score: v.totalScore || 0, games: v.games || 0 });
+        if ((v.totalScore || 0) <= 0) return; // пустые и удалённые аккаунты не показываем
+        rows.push({ uid: d.id, nick: v.nick, score: v.totalScore || 0, games: v.games || 0, photo: v.photo || null });
       });
-      return rows;
+      return rows.slice(0, 50);
     });
   }
 
