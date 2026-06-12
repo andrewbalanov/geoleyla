@@ -481,7 +481,7 @@
     if (NET.active && !NET.isHost) return; // гость ждёт хоста
     pendingMode = mode;
     var m = MODES[mode];
-    $("#setup-title").innerHTML = m.icon + " " + m.name;
+    $("#setup-title").innerHTML = m.icon + " " + I18N.modeName(mode, m.name);
     $("#inp-p1").value = settings.p1;
     $("#inp-p2").value = settings.p2;
     setSeg("#seg-players", settings.twoPlayers ? "2" : "1");
@@ -991,19 +991,32 @@
     if (!img) return null;
     return /^https?:/.test(img) ? img : "assets/info/" + img;
   }
+  // английский текст карточки (если язык EN и перевод есть), иначе null
+  function enInfo(bucket, key) {
+    if (I18N.lang() !== "en") return null;
+    return ((window.INFO_EN || {})[bucket] || {})[key] || null;
+  }
   function getCardData(q) {
     var I = window.INFO || {};
+    var en = I18N.lang() === "en";
     if (q.wine) {
       var wi = (I.wine || {})[q.wine.img];
-      return { img: wi ? infoImg(wi.img) : null, title: q.wine.name, sub: q.wine.en,
-        text: q.wine.desc, wines: q.wine.wines };
+      var we = en && (window.WINE_EN || {})[q.wine.img];
+      return { img: wi ? infoImg(wi.img) : null,
+        title: en ? q.wine.en : q.wine.name,
+        sub: en ? q.wine.name : q.wine.en,
+        text: (we && we.desc) || q.wine.desc,
+        wines: (we && we.wines) || q.wine.wines };
     }
     if (q.iso2 && (I.countries || {})[q.iso2]) {
       var c = I.countries[q.iso2];
       var co = iso2ToCountry[q.iso2];
       if (!co) return null;
-      return { img: infoImg(c.img), title: co.name, sub: co.nameEn,
-        cap: T("capitalCap") + co.capital + " · " + co.capitalEn, text: c.t };
+      return { img: infoImg(c.img),
+        title: en ? co.nameEn : co.name,
+        sub: en ? co.name : co.nameEn,
+        cap: T("capitalCap") + (en ? co.capitalEn + " · " + co.capital : co.capital + " · " + co.capitalEn),
+        text: enInfo("countries", q.iso2) || c.t };
     }
     if (q.mode === "usa" || q.mode === "france") {
       var m = maps[stageFor(q)];
@@ -1011,13 +1024,21 @@
       var pr = m.features[q.fid].properties;
       var d = q.mode === "usa" ? (I.usa || {})[pr.name] : (I.france || {})[pr.code];
       if (!d) return null;
-      return { img: infoImg(d.img), title: pr.name, sub: pr.orig, text: d.t };
+      var et = q.mode === "usa" ? enInfo("usa", pr.name) : enInfo("france", pr.code);
+      return { img: infoImg(d.img),
+        title: en ? pr.orig : pr.name,
+        sub: en ? pr.name : pr.orig,
+        text: et || d.t };
     }
     if (q.slug) {
       var bucket = q.mode === "monuments" ? I.monuments : I.places;
-      var t = (bucket || {})[q.slug] || q.infoText;
+      var t = enInfo(q.mode === "monuments" ? "monuments" : "places", q.slug) ||
+        (bucket || {})[q.slug] || q.infoText;
       if (!t && !q.img) return null;
-      return { img: q.img, title: q.title, sub: q.sub, text: t || "" };
+      return { img: q.img,
+        title: en && q.sub ? q.sub : q.title,
+        sub: en && q.sub ? q.title : q.sub,
+        text: t || "" };
     }
     return null;
   }
