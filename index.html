@@ -20,8 +20,8 @@
     <header class="hero">
       <div class="portrait">
         <div class="portrait-frame">
-          <div id="leyla-photo" class="leyla-photo" title="Загрузить фото">
-            <span class="photo-hint">♥<br><small>фото</small></span>
+          <div id="leyla-photo" class="leyla-photo">
+            <span class="photo-hint">♥</span>
           </div>
         </div>
         <div class="portrait-plate">Лейла · почётный член клуба ♥</div>
@@ -34,7 +34,7 @@
         <div class="oxford-badge">🎓 Учреждён в честь будущей студентки Оксфорда · Est. MMXXVI</div>
       </div>
     </header>
-    <input type="file" id="leyla-file" accept="image/*" hidden>
+    <div id="account-box" class="account-box"></div>
     <div id="h2h" class="h2h"></div>
     <div id="online-banner" class="online-banner" style="display:none"></div>
     <div id="mode-list"></div>
@@ -46,6 +46,86 @@
     <button class="btn-music-next glass-btn" title="Следующий трек">⏭</button>
     <button class="btn-mute glass-btn" title="Звуки игры">🔊</button>
     <button id="btn-info" class="glass-btn" title="Как играть">𝒊</button>
+  </div>
+</div>
+
+<!-- ===================== ВХОД / РЕГИСТРАЦИЯ ===================== -->
+<div class="screen board" id="screen-auth">
+  <div class="setup-inner">
+    <h2>Членство в клубе</h2>
+    <div class="seg" id="seg-auth">
+      <button data-val="login" class="on">Вход</button>
+      <button data-val="reg">Регистрация</button>
+    </div>
+    <div class="setup-row" id="auth-row-nick" style="display:none">
+      <label>Имя игрока (уникальное)</label>
+      <input id="auth-nick" maxlength="16" placeholder="Лейла">
+    </div>
+    <div class="setup-row">
+      <label>Email (логин)</label>
+      <input id="auth-email" type="email" autocomplete="username" placeholder="you@example.com">
+    </div>
+    <div class="setup-row">
+      <label>Пароль</label>
+      <input id="auth-pass" type="password" autocomplete="current-password" placeholder="минимум 6 символов">
+    </div>
+    <div class="online-status" id="auth-status"></div>
+    <button class="btn-big btn-orange" id="btn-auth-go">Войти</button>
+    <button class="btn-ghost" id="btn-auth-forgot">Забыли пароль? Выслать письмо для сброса</button>
+    <button class="btn-ghost" id="btn-auth-back">‹ Назад в меню</button>
+  </div>
+</div>
+
+<!-- ===================== ПРОФИЛЬ ===================== -->
+<div class="screen board" id="screen-profile">
+  <div class="setup-inner">
+    <h2>👤 Мой профиль</h2>
+    <div class="online-hint" id="prof-summary"></div>
+
+    <div class="setup-row">
+      <label>Имя игрока</label>
+      <input id="prof-nick" maxlength="16">
+      <button class="btn-big" id="btn-prof-nick">Сменить имя</button>
+    </div>
+
+    <div class="setup-row">
+      <label>Язык названий в игре</label>
+      <div class="seg" id="seg-lang">
+        <button data-val="ru" class="on">Русский</button>
+        <button data-val="en">English</button>
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <label>Смена пароля</label>
+      <input id="prof-old-pass" type="password" placeholder="Текущий пароль">
+      <input id="prof-new-pass" type="password" placeholder="Новый пароль (от 6 символов)">
+      <button class="btn-big" id="btn-prof-pass">Сменить пароль</button>
+    </div>
+
+    <div class="setup-row">
+      <label>Смена email</label>
+      <input id="prof-email-pass" type="password" placeholder="Текущий пароль">
+      <input id="prof-new-email" type="email" placeholder="Новый email">
+      <button class="btn-big" id="btn-prof-email">Сменить email</button>
+    </div>
+
+    <div class="online-status" id="prof-status"></div>
+    <button class="btn-big btn-orange" id="btn-logout">Выйти из аккаунта</button>
+    <button class="btn-ghost" id="btn-prof-back">‹ Назад в меню</button>
+  </div>
+</div>
+
+<!-- ===================== РЕЙТИНГ ===================== -->
+<div class="screen board" id="screen-leaders">
+  <div class="results-inner">
+    <h2>🏆 Рейтинг клуба</h2>
+    <div class="online-status" id="leaders-status"></div>
+    <div class="result-table-wrap">
+      <table id="leaders-table"></table>
+    </div>
+    <div id="leaders-h2h" class="result-h2h"></div>
+    <button class="btn-ghost" id="btn-leaders-back">‹ Назад в меню</button>
   </div>
 </div>
 
@@ -285,6 +365,11 @@
 <script src="js/data/photos.js"></script>
 <script src="js/data/france.js"></script>
 <script src="js/data/usa.js"></script>
+<script src="js/lib/firebase-app-compat.js"></script>
+<script src="js/lib/firebase-auth-compat.js"></script>
+<script src="js/lib/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/account.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/map.js"></script>

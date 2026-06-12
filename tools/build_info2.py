@@ -173,12 +173,13 @@ if os.environ.get('NO_PHOTOS') != '1':
         time.sleep(0.25)
     print('фото скачано:', ok, flush=True)
 
-# не ссылаться на несуществующие файлы
+# если локального файла нет — ставим прямой URL Википедии (хотлинк работает у игроков)
+url_by_fname = {f: u for u, f in photo_queue}
 for bucket in ('countries', 'usa', 'france', 'wine'):
     for k, v in INFO[bucket].items():
         img = v.get('img')
         if img and not (os.path.exists(os.path.join(INFO_DIR, img)) and os.path.getsize(os.path.join(INFO_DIR, img)) > 2000):
-            v['img'] = None
+            v['img'] = url_by_fname.get(img)  # None если url нет
 
 with open(os.path.join(BASE, 'js/data/info.js'), 'w', encoding='utf-8') as f:
     f.write('window.INFO=')

@@ -160,11 +160,9 @@
       NET.remoteName = String(msg.name || "Соперник").slice(0, 14);
       if (NET.isHost) {
         $("#online-host-status").textContent = "✔ " + NET.remoteName + " подключилась!";
-        $("#online-banner").innerHTML = "🌐 Онлайн-дуэль с <b>" + esc(NET.remoteName) + "</b> — выбери режим!";
-        $("#online-banner").style.display = "block";
-        renderMenu();
-        showScreen("screen-menu");
       }
+      renderMenu();
+      showScreen("screen-menu");
     } else if (msg.t === "start") {
       // гость получает старт игры
       startOnlineMatch(msg.mode, msg.questions, msg.timer, msg.hostName, false);
@@ -176,12 +174,11 @@
     } else if (msg.t === "next") {
       if (!G || !G.online || NET.isHost) return;
       nextQuestion();
-    } else if (msg.t === "rematch") {
-      if (!G || !G.online || NET.isHost) return;
-      G.questions = msg.questions;
-      restartMatch();
+    } else if (msg.t === "abort") {
+      // хост или гость прервал матч — оба в меню, сессия живёт
+      if (G && G.online) quitToMenu(true);
     } else if (msg.t === "bye") {
-      onNetDrop("Соперник вышел из игры");
+      onNetDrop("Соперник вышел из онлайн-сессии");
     }
   }
 
@@ -273,9 +270,10 @@
   }
   function qWine(w, mode) {
     var wi = ((window.INFO || {}).wine || {})[w.img];
+    var img = wi && wi.img ? (/^https?:/.test(wi.img) ? wi.img : "assets/info/" + wi.img) : null;
     return { kind: "point", mode: mode, title: w.name, chip: "винный регион",
       sub: w.en, revealSub: w.en, wine: w,
-      img: wi ? "assets/info/" + wi.img : null,
+      img: img,
       target: [w.lng, w.lat], r: w.r, reveal: w.name };
   }
   function qRegions(mapName, chip, decay) {
@@ -389,25 +387,7 @@
       probe.src = srcs[i];
     }
     probeChain(["assets/leyla.jpg", "assets/leyla.png"], 0);
-
-    slot.onclick = function () { $("#leyla-file").click(); };
-    $("#leyla-file").onchange = function () {
-      var f = this.files && this.files[0];
-      if (!f) return;
-      var img = new Image();
-      img.onload = function () {
-        var size = 512;
-        var cv = document.createElement("canvas");
-        var k = Math.max(size / img.width, size / img.height);
-        cv.width = Math.min(img.width * k, img.width);
-        cv.height = Math.min(img.height * k, img.height);
-        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-        var url = cv.toDataURL("image/jpeg", 0.85);
-        try { localStorage.setItem("gm_leyla_photo", url); } catch (e) {}
-        showSrc(url);
-      };
-      img.src = URL.createObjectURL(f);
-    };
+    // портрет почётного члена клуба статичен и неприкосновенен ♥
   }
 
   function renderMenu() {
@@ -435,8 +415,25 @@
       ob.onclick = openOnline;
       list.appendChild(ob);
     }
+    // гость онлайн-сессии не выбирает режим — ждёт хоста
+    if (NET.active && !NET.isHost) list.classList.add("guest-wait");
+    else list.classList.remove("guest-wait");
+    updateOnlineBanner();
     renderH2H();
     updateMuteBtns();
+    if (window.Account) Account.renderBox();
+  }
+
+  function updateOnlineBanner() {
+    var b = $("#online-banner");
+    if (!NET.active) { b.style.display = "none"; return; }
+    var who = esc(NET.remoteName || "…");
+    b.innerHTML = (NET.isHost
+      ? "🌐 Онлайн-сессия с <b>" + who + "</b> — выбери режим!"
+      : "🌐 Онлайн-сессия с <b>" + who + "</b>. Хост выбирает режим…") +
+      '<button id="btn-leave-net">Выйти из онлайн-сессии</button>';
+    b.style.display = "block";
+    $("#btn-leave-net").onclick = leaveOnlineSession;
   }
 
   function openOnline() {
@@ -664,8 +661,11 @@
     var html = "";
     if (q.flag) html += '<img class="q-flag" src="assets/flags/' + q.flag + '.png" alt="флаг">';
     if (q.img) html += '<img class="q-img" src="' + q.img + '" alt="">';
-    html += '<div class="q-line"><div class="q-titles"><div class="q-title">' + esc(q.title) + "</div>";
-    if (q.sub && q.sub !== q.title) html += '<div class="q-sub">' + esc(q.sub) + "</div>";
+    // язык названий: en — английское крупно, русское мелко
+    var tMain = q.title, tSub = q.sub;
+    if (gameLang === "en" && q.sub && q.sub !== q.title) { tMain = q.sub; tSub = q.title; }
+    html += '<div class="q-line"><div class="q-titles"><div class="q-title">' + esc(tMain) + "</div>";
+    if (tSub && tSub !== tMain) html += '<div class="q-sub">' + esc(tSub) + "</div>";
     html += "</div>";
     if (q.chip) html += '<span class="chip">' + esc(q.chip) + "</span>";
     html += "</div>";
@@ -963,18 +963,22 @@
   }
 
   // ---------- Инфо-карточки об объекте ----------
+  function infoImg(img) {
+    if (!img) return null;
+    return /^https?:/.test(img) ? img : "assets/info/" + img;
+  }
   function getCardData(q) {
     var I = window.INFO || {};
     if (q.wine) {
       var wi = (I.wine || {})[q.wine.img];
-      return { img: wi ? "assets/info/" + wi.img : null, title: q.wine.name, sub: q.wine.en,
+      return { img: wi ? infoImg(wi.img) : null, title: q.wine.name, sub: q.wine.en,
         text: q.wine.desc, wines: q.wine.wines };
     }
     if (q.iso2 && (I.countries || {})[q.iso2]) {
       var c = I.countries[q.iso2];
       var co = iso2ToCountry[q.iso2];
       if (!co) return null;
-      return { img: c.img ? "assets/info/" + c.img : null, title: co.name, sub: co.nameEn,
+      return { img: infoImg(c.img), title: co.name, sub: co.nameEn,
         cap: "Столица: " + co.capital + " · " + co.capitalEn, text: c.t };
     }
     if (q.mode === "usa" || q.mode === "france") {
@@ -983,7 +987,7 @@
       var pr = m.features[q.fid].properties;
       var d = q.mode === "usa" ? (I.usa || {})[pr.name] : (I.france || {})[pr.code];
       if (!d) return null;
-      return { img: d.img ? "assets/info/" + d.img : null, title: pr.name, sub: pr.orig, text: d.t };
+      return { img: infoImg(d.img), title: pr.name, sub: pr.orig, text: d.t };
     }
     if (q.slug) {
       var bucket = q.mode === "monuments" ? I.monuments : I.places;
@@ -1074,6 +1078,7 @@
       Sound.win();
       confetti(ps[0].color);
     }
+    creditScore();
     $("#result-headline").innerHTML = headline;
     $("#result-score").textContent = sub;
     $("#result-mode").textContent = MODES[G.mode].icon + " " + MODES[G.mode].name + (G.online ? " · онлайн" : "");
@@ -1126,13 +1131,26 @@
   function rematch() {
     if (G.online && !NET.isHost) return;
     G.questions = buildQuestions(G.mode, settings.nQ, settings.diff, settings.region);
-    if (G.online) netSend({ t: "rematch", questions: G.questions });
+    if (G.online) {
+      // реванш = новый старт (гость может быть уже в меню сессии)
+      netSend({ t: "start", mode: G.mode, questions: G.questions, timer: G.timerSec, hostName: myName() });
+    }
     restartMatch();
   }
 
-  function quitToMenu() {
+  // выход в меню: онлайн-сессия ЖИВЁТ, рвём только текущий матч
+  function quitToMenu(silent) {
     stopTimer();
-    if (NET.active) { netSend({ t: "bye" }); netCleanup(); }
+    if (!silent && G && G.online && NET.active) netSend({ t: "abort" });
+    G = null;
+    renderMenu();
+    showScreen("screen-menu");
+  }
+
+  // полный выход из онлайн-сессии (кнопка в баннере меню)
+  function leaveOnlineSession() {
+    if (NET.active) netSend({ t: "bye" });
+    netCleanup();
     G = null;
     renderMenu();
     showScreen("screen-menu");
@@ -1167,6 +1185,117 @@
       else { ctx.clearRect(0, 0, cv.width, cv.height); cv.style.display = "none"; }
     }
     requestAnimationFrame(frame);
+  }
+
+  // ---------- Аккаунт, профиль, рейтинг ----------
+  var gameLang = "ru"; // 'en' меняет местами основное/второе название
+
+  function renderAccountBox() {
+    var box = $("#account-box");
+    if (!box) return;
+    if (!window.Account || !Account.isIn()) {
+      box.innerHTML = '<button class="account-btn" id="btn-open-auth">👤 Вход · Регистрация</button>';
+      var b = $("#btn-open-auth");
+      if (b) b.onclick = openAuth;
+      return;
+    }
+    var p = Account.profile() || {};
+    box.innerHTML = '<button class="account-btn in" id="btn-open-profile">👤 <b>' + esc(Account.nick() || "Игрок") +
+      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " очков · игр: " + (p.games || 0) + "</span></button>";
+    var pb = $("#btn-open-profile");
+    if (pb) pb.onclick = openProfile;
+  }
+  window.__renderAccountBox = renderAccountBox;
+
+  function onAccountChange() {
+    renderAccountBox();
+    var nick = window.Account && Account.nick();
+    if (nick) {
+      settings.p1 = nick;
+      store("gm_settings", settings);
+      renderH2H();
+    }
+    gameLang = (window.Account && Account.lang()) || "ru";
+  }
+
+  var authMode = "login";
+  function openAuth() {
+    authMode = "login";
+    setSeg("#seg-auth", "login");
+    $("#auth-row-nick").style.display = "none";
+    $("#btn-auth-go").textContent = "Войти";
+    $("#auth-status").textContent = "";
+    showScreen("screen-auth");
+  }
+
+  function authGo() {
+    var email = ($("#auth-email").value || "").trim();
+    var pass = $("#auth-pass").value || "";
+    var st = $("#auth-status");
+    st.textContent = "⏳ Секунду…";
+    var p = authMode === "reg"
+      ? Account.register($("#auth-nick").value, email, pass)
+      : Account.login(email, pass);
+    p.then(function () {
+      st.textContent = "";
+      renderMenu();
+      showScreen("screen-menu");
+    }).catch(function (e) {
+      st.textContent = "⚠️ " + Account.errText(e);
+    });
+  }
+
+  function openProfile() {
+    var p = Account.profile() || {};
+    $("#prof-nick").value = Account.nick() || "";
+    $("#prof-summary").innerHTML = "Email: <b>" + esc(Account.email() || "—") + "</b> · Очки: <b>" +
+      (p.totalScore || 0).toLocaleString("ru-RU") + "</b> · Игр: <b>" + (p.games || 0) + "</b>";
+    setSeg("#seg-lang", Account.lang());
+    $("#prof-status").textContent = "";
+    $("#prof-old-pass").value = $("#prof-new-pass").value = "";
+    $("#prof-email-pass").value = $("#prof-new-email").value = "";
+    showScreen("screen-profile");
+  }
+
+  function openLeaders() {
+    showScreen("screen-leaders");
+    $("#leaders-status").textContent = "⏳ Загружаем рейтинг…";
+    $("#leaders-table").innerHTML = "";
+    renderH2H2($("#leaders-h2h"));
+    if (!window.Account || !firebase) { $("#leaders-status").textContent = "Рейтинг недоступен"; return; }
+    Account.leaderboard().then(function (rows) {
+      if (!rows.length) {
+        $("#leaders-status").textContent = "Пока никто не сыграл — будь первой, Лейла!";
+        return;
+      }
+      $("#leaders-status").textContent = "";
+      var me = Account.uid();
+      $("#leaders-table").innerHTML = "<tr><th>#</th><th>Игрок</th><th>Очки</th><th>Игр</th></tr>" +
+        rows.map(function (r, i) {
+          var medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+          return '<tr class="' + (r.uid === me ? "me" : "") + '"><td>' + medal + '</td><td class="q">' +
+            esc(r.nick || "—") + "</td><td>" + (r.score || 0).toLocaleString("ru-RU") + "</td><td>" + r.games + "</td></tr>";
+        }).join("");
+    }).catch(function (e) {
+      $("#leaders-status").textContent = "⚠️ " + Account.errText(e);
+    });
+  }
+
+  function renderH2H2leaders(el) { renderH2H2(el); }
+
+  // очки в общий рейтинг: онлайн — мой счёт; соло — мой; локальная дуэль —
+  // только игроку, чьё имя совпадает с ником (чтобы не фармить вдвоём с одного аккаунта)
+  function creditScore() {
+    if (!window.Account || !Account.isIn() || !G) return;
+    var pts = 0;
+    if (G.online) pts = G.players[G.myIdx].score;
+    else if (G.players.length === 1) pts = G.players[0].score;
+    else {
+      var nick = (Account.nick() || "").toLowerCase();
+      var mine = G.players.filter(function (p) { return p.name.toLowerCase() === nick; })[0];
+      if (mine) pts = mine.score;
+    }
+    if (pts > 0) Account.addScore(pts);
   }
 
   // ---------- Звук ----------
@@ -1242,7 +1371,7 @@
     $("#btn-quit").onclick = function () {
       if (confirm("Завершить игру и выйти в меню?")) quitToMenu();
     };
-    $("#btn-trophy").onclick = renderTrophy;
+    $("#btn-trophy").onclick = openLeaders;
     $("#btn-info").onclick = function () { $("#overlay-info").classList.add("show"); };
     $$(".overlay-card .btn-close").forEach(function (b) {
       b.onclick = function () { b.closest(".overlay").classList.remove("show"); };
@@ -1312,8 +1441,59 @@
       if (NET.active) netSend({ t: "bye" });
     });
 
+    // аккаунты и рейтинг
+    if (window.Account && Account.init()) {
+      Account.onChange(onAccountChange);
+    }
+    $("#seg-auth").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      authMode = b.getAttribute("data-val");
+      $("#auth-row-nick").style.display = authMode === "reg" ? "" : "none";
+      $("#btn-auth-go").textContent = authMode === "reg" ? "Зарегистрироваться" : "Войти";
+      $("#auth-status").textContent = "";
+    });
+    $("#btn-auth-go").onclick = authGo;
+    $("#auth-pass").addEventListener("keydown", function (e) { if (e.key === "Enter") authGo(); });
+    $("#btn-auth-forgot").onclick = function () {
+      var email = ($("#auth-email").value || "").trim();
+      if (!email) { $("#auth-status").textContent = "Введите email в поле выше и нажмите ещё раз"; return; }
+      Account.resetPassword(email).then(function () {
+        $("#auth-status").textContent = "✉️ Письмо для сброса пароля отправлено на " + email;
+      }).catch(function (e2) { $("#auth-status").textContent = "⚠️ " + Account.errText(e2); });
+    };
+    $("#btn-auth-back").onclick = function () { showScreen("screen-menu"); };
+    $("#btn-prof-back").onclick = function () { renderMenu(); showScreen("screen-menu"); };
+    $("#btn-leaders-back").onclick = function () { showScreen("screen-menu"); };
+    $("#btn-logout").onclick = function () {
+      Account.logout().then(function () { renderMenu(); showScreen("screen-menu"); });
+    };
+    $("#btn-prof-nick").onclick = function () {
+      Account.changeNick($("#prof-nick").value).then(function () {
+        $("#prof-status").textContent = "✔ Имя изменено";
+        onAccountChange();
+      }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
+    };
+    $("#btn-prof-pass").onclick = function () {
+      Account.changePassword($("#prof-old-pass").value, $("#prof-new-pass").value).then(function () {
+        $("#prof-status").textContent = "✔ Пароль изменён";
+      }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
+    };
+    $("#btn-prof-email").onclick = function () {
+      Account.changeEmail($("#prof-email-pass").value, ($("#prof-new-email").value || "").trim()).then(function () {
+        $("#prof-status").textContent = "✉️ Подтвердите смену по письму на новом адресе";
+      }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
+    };
+    $("#seg-lang").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      Account.setLang(b.getAttribute("data-val"));
+      gameLang = b.getAttribute("data-val");
+    });
+
     $("#inp-p1").addEventListener("input", renderH2H);
     initLeylaPhoto();
+    renderAccountBox();
     showScreen("screen-menu");
 
     // открыли по ссылке-приглашению (?join=КОД) — подключаемся сами
