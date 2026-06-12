@@ -94,6 +94,7 @@
       $("#online-code").textContent = NET.code.split("").join(" ");
       var canLink = /^https?:$/.test(location.protocol);
       $("#btn-copy-invite").style.display = canLink ? "" : "none";
+      $("#share-row").style.display = canLink ? "" : "none";
       $("#online-host-status").textContent = canLink ? T("tellCodeOrLink") : T("tellCode");
     });
     peer.on("connection", function (c) {
@@ -1526,6 +1527,21 @@
       netCleanup();
       renderMenu();
       showScreen("screen-menu");
+    };
+    // приглашение в WhatsApp / Telegram — открывается выбор контакта с готовым текстом
+    function inviteLink() {
+      return NET.code ? location.origin + location.pathname + "?join=" + NET.code : null;
+    }
+    $("#btn-share-wa").onclick = function () {
+      var link = inviteLink();
+      if (!link) return;
+      window.open("https://wa.me/?text=" + encodeURIComponent(T("inviteMsg", myName()) + "\n" + link), "_blank");
+    };
+    $("#btn-share-tg").onclick = function () {
+      var link = inviteLink();
+      if (!link) return;
+      window.open("https://t.me/share/url?url=" + encodeURIComponent(link) +
+        "&text=" + encodeURIComponent(T("inviteMsg", myName())), "_blank");
     };
     $("#btn-copy-invite").onclick = function () {
       if (!NET.code) return;

@@ -48,6 +48,7 @@ window.I18N = (function () {
       joinClub: "✒️ Вступить в клуб",
       checkingMember: "Сверяем список членов клуба…",
       inviteFirst: "💌 Вас пригласили на дуэль! Сначала войдите в клуб.",
+      inviteMsg: "⚔️ {0} вызывает тебя на онлайн-дуэль в GeoLeyla — Географическом клубе Оксфорда и Кембриджа! 🌍 Столицы, флаги, моря и винные регионы: кто знает карту лучше? Принимай вызов:",
       or: "или",
       quitQ: "Завершить игру и выйти в меню?",
       // итоги
@@ -141,6 +142,7 @@ window.I18N = (function () {
       joinClub: "✒️ Join the Club",
       checkingMember: "Checking the member list…",
       inviteFirst: "💌 You've been invited to a duel! Sign in to the Club first.",
+      inviteMsg: "⚔️ {0} challenges you to an online duel in GeoLeyla — the Oxford & Cambridge Geographical Club! 🌍 Capitals, flags, seas and wine regions: who knows the map better? Accept the challenge:",
       or: "or",
       quitQ: "End the game and return to menu?",
       win: "🏆 Winner: ", drawT: "🤝 It's a draw!", yourResult: "Your result",
