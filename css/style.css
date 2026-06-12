@@ -239,7 +239,7 @@ button:disabled { opacity: 0.55; cursor: default; }
 .account-btn:hover { border-color: var(--gold); }
 /* ===================== РЕЙТИНГ КЛУБА ===================== */
 .leaders-inner {
-  width: min(720px, 100%); margin: 0 auto;
+  width: min(840px, 100%); margin: 0 auto;
   padding: max(22px, env(safe-area-inset-top)) 18px 26px;
   display: flex; flex-direction: column; gap: 14px; align-items: stretch;
 }
@@ -329,7 +329,7 @@ button:disabled { opacity: 0.55; cursor: default; }
   font-weight: 700; text-align: left; vertical-align: middle;
 }
 #leaders-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.02); }
-#leaders-table .lb-rank { width: 52px; text-align: center; color: var(--cream-dim); font-family: var(--serif); font-weight: 900; }
+#leaders-table .lb-rank { width: 70px; text-align: center; color: var(--cream-dim); font-family: var(--serif); font-weight: 900; white-space: nowrap; }
 #leaders-table td.lb-player { display: flex; align-items: center; gap: 10px; }
 #leaders-table .lb-score { text-align: right; color: var(--gold-soft); font-weight: 900; font-size: 16px; }
 #leaders-table th.lb-score { text-align: right; }
@@ -338,6 +338,10 @@ button:disabled { opacity: 0.55; cursor: default; }
 #leaders-table img.av, #leaders-table .gen-av { width: 34px; height: 34px; font-size: 16px; }
 #leaders-table tr.me td { color: var(--pink-soft); font-weight: 900; }
 #leaders-table tr.me .lb-score { color: var(--pink-soft); }
+#leaders-table tr.top1 td { background: rgba(232, 205, 128, 0.10); }
+#leaders-table tr.top2 td { background: rgba(200, 205, 212, 0.07); }
+#leaders-table tr.top3 td { background: rgba(205, 152, 95, 0.07); }
+#leaders-table tr.top1 .lb-rank { color: var(--gold-soft); }
 
 /* --- генерируемая аватарка: буква в цветном круге --- */
 .gen-av {
@@ -425,6 +429,13 @@ img.av {
 #mode-list {
   width: min(740px, 100%);
   display: grid; grid-template-columns: 1fr 1fr; gap: 11px;
+}
+/* широкий десктоп (MacBook и шире): три колонки — всё меню на одном экране */
+@media (min-width: 1180px) and (min-height: 760px) {
+  #mode-list { width: min(1150px, 96%); grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .mode-card { padding: 11px 13px; }
+  .menu-scroll { gap: 11px; padding-bottom: 84px; }
+  .hero { padding-top: 0; }
 }
 .mode-card {
   display: flex; align-items: center; gap: 13px; text-align: left;

@@ -1624,6 +1624,7 @@
     $("#btn-acc-profile").onclick = openProfile;
     $("#btn-acc-leaders").onclick = openLeaders;
     $("#btn-acc-logout").onclick = function () {
+      if (!confirm(T("logoutQ"))) return;
       Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
     };
   }
@@ -1802,21 +1803,20 @@
         return podiumCard(top[idx], idx + 1, me);
       }).join("");
 
-      // таблица — с 4-го места
-      var rest = rows.slice(3);
-      if (rest.length) {
-        $("#lb-table-wrap").style.display = "";
-        $("#leaders-table").innerHTML =
-          "<tr><th class='lb-rank'>#</th><th class='lb-player'>" + T("playerW") + "</th><th class='lb-score'>" +
-          T("scoreW") + "</th><th class='lb-games'>" + T("gamesW") + "</th></tr>" +
-          rest.map(function (r, i) {
-            return '<tr class="' + (r.uid === me ? "me" : "") + '">' +
-              '<td class="lb-rank">' + (i + 4) + "</td>" +
-              '<td class="lb-player">' + avatarOf(r, "av") + "<span>" + esc(r.nick || "—") + "</span></td>" +
-              '<td class="lb-score">' + (r.score || 0).toLocaleString("ru-RU") + "</td>" +
-              '<td class="lb-games">' + r.games + "</td></tr>";
-          }).join("");
-      }
+      // полная таблица: все игроки по порядку с нумерацией
+      var medals = { 0: "🥇", 1: "🥈", 2: "🥉" };
+      $("#lb-table-wrap").style.display = "";
+      $("#leaders-table").innerHTML =
+        "<tr><th class='lb-rank'>#</th><th class='lb-player'>" + T("playerW") + "</th><th class='lb-score'>" +
+        T("scoreW") + "</th><th class='lb-games'>" + T("gamesW") + "</th></tr>" +
+        rows.map(function (r, i) {
+          var cls = (r.uid === me ? "me " : "") + (i < 3 ? "top" + (i + 1) : "");
+          return '<tr class="' + cls + '">' +
+            '<td class="lb-rank">' + (medals[i] ? medals[i] + " " : "") + (i + 1) + "</td>" +
+            '<td class="lb-player">' + avatarOf(r, "av") + "<span>" + esc(r.nick || "—") + "</span></td>" +
+            '<td class="lb-score">' + (r.score || 0).toLocaleString("ru-RU") + "</td>" +
+            '<td class="lb-games">' + r.games + "</td></tr>";
+        }).join("");
     }).catch(function (e) {
       $("#leaders-status").textContent = "⚠️ " + Account.errText(e);
     });
@@ -2076,6 +2076,7 @@
     $("#btn-prof-back").onclick = function () { renderMenu(); showScreen("screen-menu"); };
     $("#btn-leaders-back").onclick = function () { showScreen("screen-menu"); };
     $("#btn-logout").onclick = function () {
+      if (!confirm(T("logoutQ"))) return;
       Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
     };
     $("#btn-prof-nick").onclick = function () {
