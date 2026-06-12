@@ -218,7 +218,14 @@ button:disabled { opacity: 0.55; cursor: default; }
   padding: 5px 13px; border-radius: 999px;
 }
 
-.account-box { display: flex; justify-content: center; }
+.account-box { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.account-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.account-actions button {
+  background: rgba(201, 162, 39, 0.08); border: 1px solid var(--gold-dim);
+  color: var(--cream); border-radius: 999px; padding: 7px 15px;
+  font-size: 13.5px; font-weight: 800;
+}
+.account-actions button:hover { border-color: var(--gold); }
 .account-btn {
   display: inline-flex; align-items: center; gap: 10px;
   background: rgba(201, 162, 39, 0.1); color: var(--cream);
@@ -382,6 +389,8 @@ img.av {
 }
 .online-status { text-align: center; font-size: 15px; font-weight: 700; color: var(--cream-dim); min-height: 22px; margin-top: 4px; }
 #online-host-sec { display: flex; flex-direction: column; gap: 8px; }
+#online-join-sec { display: flex; flex-direction: column; gap: 10px; }
+#online-join-sec .btn-big { display: block; width: 100%; }
 .btn-invite {
   display: block; width: min(360px, 100%); margin: 6px auto 0;
   background: rgba(255, 95, 162, 0.1); border: 1.5px solid rgba(255, 95, 162, 0.5);

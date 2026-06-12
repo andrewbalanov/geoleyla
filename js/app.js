@@ -98,13 +98,15 @@
       $("#online-host-status").textContent = canLink ? T("tellCodeOrLink") : T("tellCode");
     });
     peer.on("connection", function (c) {
-      if (NET.conn) { try { c.close(); } catch (e) {} return; }
+      if (NET.conn && NET.conn.open) { try { c.close(); } catch (e) {} return; }
       NET.conn = c;
       bindConn(c);
     });
+    bindPeerWatch(peer, "#online-host-status");
     peer.on("error", function (err) {
       var t = err && err.type;
       if (t === "unavailable-id") { hostRoom(); return; }
+      if (t === "network") return; // связь с брокером — её чинит bindPeerWatch
       $("#online-host-status").textContent = T("netErr", t || err);
     });
   }
@@ -115,16 +117,55 @@
     netCleanup();
     NET.isHost = false;
     $("#online-join-status").textContent = T("connecting");
+    var attempts = 0, watchdog = null;
     var peer = NET.peer = new Peer({ debug: 0 });
-    peer.on("open", function () {
+    function tryConnect() {
+      if (NET.peer !== peer || peer.destroyed) return;
+      if (NET.conn && NET.conn.open) return;
       var c = peer.connect("gmleyla-" + code, { reliable: true });
       NET.conn = c;
       bindConn(c);
-    });
+      // брокер не всегда отвечает на повторный запрос к несуществующей
+      // комнате — не даём статусу зависнуть навсегда
+      clearTimeout(watchdog);
+      watchdog = setTimeout(function () {
+        if (NET.peer === peer && !peer.destroyed && !(NET.conn && NET.conn.open)) {
+          $("#online-join-status").textContent = T("roomNotFound");
+        }
+      }, 9000);
+    }
+    peer.on("open", tryConnect);
+    bindPeerWatch(peer, "#online-join-status");
     peer.on("error", function (err) {
       var t = err && err.type;
-      if (t === "peer-unavailable") $("#online-join-status").textContent = T("roomNotFound");
-      else $("#online-join-status").textContent = T("netErr", t || err);
+      if (t === "peer-unavailable") {
+        // хост мог как раз переподключаться к брокеру — одна повторная попытка
+        if (++attempts <= 1) {
+          $("#online-join-status").textContent = T("retrying");
+          setTimeout(tryConnect, 1200);
+        } else {
+          $("#online-join-status").textContent = T("roomNotFound");
+        }
+      } else if (t === "network") {
+        // связь с брокером — её чинит bindPeerWatch
+      } else {
+        $("#online-join-status").textContent = T("netErr", t || err);
+      }
+    });
+  }
+
+  // связь с PeerJS-брокером может рваться (телефон уснул, сеть мигнула):
+  // тихо переподключаемся с тем же id — комната и матч при этом не умирают
+  function bindPeerWatch(peer, statusSel) {
+    peer.on("disconnected", function () {
+      if (NET.peer !== peer || peer.destroyed) return;
+      if ($("#screen-online").classList.contains("active"))
+        $(statusSel).textContent = T("reconnecting");
+      setTimeout(function () {
+        if (NET.peer === peer && !peer.destroyed && peer.disconnected) {
+          try { peer.reconnect(); } catch (e) {}
+        }
+      }, 800);
     });
   }
 
@@ -136,8 +177,24 @@
       if (!NET.isHost) $("#online-join-status").textContent = T("joinedWait");
     });
     c.on("data", onNetMsg);
-    c.on("close", function () { onNetDrop(T("netLost")); });
-    c.on("error", function () { onNetDrop(T("netLost")); });
+    c.on("close", function () { onConnClosed(c); });
+    c.on("error", function () { onConnClosed(c); });
+  }
+
+  // обрыв соединения с соперником: до матча комната хоста продолжает ждать,
+  // вместо того чтобы умирать (раньше любой сбой гостя убивал комнату)
+  function onConnClosed(c) {
+    if (NET.conn !== c) return; // устаревшее соединение
+    var inGame = G && G.online && !$("#screen-menu").classList.contains("active");
+    if (NET.isHost && !inGame) {
+      NET.conn = null; NET.active = false; NET.remoteName = ""; NET.remotePhoto = null;
+      $("#online-banner").style.display = "none";
+      renderMenu();
+      if ($("#screen-online").classList.contains("active"))
+        $("#online-host-status").textContent = T("guestLeftWait");
+      return;
+    }
+    onNetDrop(T("netLost"));
   }
 
   function onNetDrop(text) {
@@ -179,7 +236,9 @@
       // хост или гость прервал матч — оба в меню, сессия живёт
       if (G && G.online) quitToMenu(true);
     } else if (msg.t === "bye") {
-      onNetDrop(T("oppLeft"));
+      var byeInGame = G && G.online && !$("#screen-menu").classList.contains("active");
+      if (NET.isHost && !byeInGame) onConnClosed(NET.conn); // комната ждёт нового гостя
+      else onNetDrop(T("oppLeft"));
     }
   }
 
@@ -1267,9 +1326,18 @@
     var p = Account.profile() || {};
     var ava = Account.photo() ? '<img class="av" src="' + Account.photo() + '" alt="">' : "👤";
     box.innerHTML = '<button class="account-btn in" id="btn-open-profile">' + ava + ' <b>' + esc(Account.nick() || "Игрок") +
-      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " " + T("pts") + " · " + T("games") + ": " + (p.games || 0) + "</span></button>";
-    var pb = $("#btn-open-profile");
-    if (pb) pb.onclick = openProfile;
+      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " " + T("pts") + " · " + T("games") + ": " + (p.games || 0) + "</span></button>" +
+      '<div class="account-actions">' +
+        '<button id="btn-acc-profile">⚙️ ' + T("profileBtn") + "</button>" +
+        '<button id="btn-acc-leaders">🏆 ' + T("ratingBtn") + "</button>" +
+        '<button id="btn-acc-logout">🚪 ' + T("signOut") + "</button>" +
+      "</div>";
+    $("#btn-open-profile").onclick = openProfile;
+    $("#btn-acc-profile").onclick = openProfile;
+    $("#btn-acc-leaders").onclick = openLeaders;
+    $("#btn-acc-logout").onclick = function () {
+      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+    };
   }
   window.__renderAccountBox = renderAccountBox;
 
@@ -1592,6 +1660,12 @@
     window.addEventListener("beforeunload", function () {
       if (NET.active) netSend({ t: "bye" });
     });
+    // вкладка проснулась (телефон разблокировали) — вернуть связь с брокером
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && NET.peer && NET.peer.disconnected && !NET.peer.destroyed) {
+        try { NET.peer.reconnect(); } catch (e) {}
+      }
+    });
 
     // аккаунты и рейтинг
     var accountOn = false;
@@ -1696,6 +1770,7 @@
   // отладочный доступ (используется только для тестов)
   window.__DEV = {
     getMap: function (name) { return name ? maps[name] : cur(); },
+    peer: function () { return NET.peer; },
     net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, remote: NET.remoteName }; },
     state: function () {
       if (!G) return null;
