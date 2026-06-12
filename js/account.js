@@ -23,6 +23,25 @@ window.Account = (function () {
     "auth/unauthorized-domain": "Домен не добавлен в Authorized domains (Authentication → Settings)",
     "net-timeout": "База данных не отвечает. Проверьте, что в консоли Firebase создан Firestore (Firestore Database → Create database)"
   };
+  var ERR_EN = {
+    "auth/email-already-in-use": "This email is already registered",
+    "auth/invalid-email": "Invalid email address",
+    "auth/weak-password": "Password is too weak (at least 6 characters)",
+    "auth/wrong-password": "Wrong password",
+    "auth/invalid-credential": "Wrong email or password",
+    "auth/user-not-found": "No user found with this email",
+    "auth/too-many-requests": "Too many attempts — please wait a bit",
+    "auth/operation-not-allowed": "Email/password sign-in is not enabled in the Firebase console",
+    "auth/requires-recent-login": "Please sign in again to do this",
+    "permission-denied": "The database is locked by security rules",
+    "nick-taken": "This name is already taken",
+    "bad-nick": "The name must be 2–16 characters long",
+    "auth/popup-blocked": "The browser blocked the sign-in window — allow pop-ups",
+    "auth/popup-closed-by-user": "The sign-in window was closed",
+    "auth/cancelled-popup-request": "The sign-in window was closed",
+    "auth/unauthorized-domain": "This domain is not in Authorized domains (Authentication → Settings)",
+    "net-timeout": "The database is not responding. Check your connection and try again"
+  };
   function withTimeout(p, ms) {
     return Promise.race([p, new Promise(function (_, rej) {
       setTimeout(function () { rej({ code: "net-timeout" }); }, ms || 9000);
@@ -30,7 +49,9 @@ window.Account = (function () {
   }
   function errText(e) {
     var code = (e && (e.code || e.message)) || "";
-    return ERR[code] || ("Ошибка: " + code);
+    var en = window.I18N && I18N.lang() === "en";
+    var d = en ? ERR_EN : ERR;
+    return d[code] || ((en ? "Error: " : "Ошибка: ") + code);
   }
 
   function init() {
@@ -61,7 +82,7 @@ window.Account = (function () {
   function notify() { listeners.forEach(function (f) { try { f(); } catch (e) {} }); }
   function nickKey(n) { return n.trim().toLowerCase(); }
 
-  function register(nick, email, pass) {
+  function register(nick, email, pass, photo) {
     nick = (nick || "").trim();
     if (nick.length < 2 || nick.length > 16) return Promise.reject({ code: "bad-nick" });
     var key = nickKey(nick);
@@ -74,6 +95,7 @@ window.Account = (function () {
       batch.set(db.collection("nicks").doc(key), { uid: uid });
       batch.set(db.collection("users").doc(uid), {
         nick: nick, nickLower: key, email: email, lang: "ru",
+        photo: photo || null,
         totalScore: 0, games: 0,
         created: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -81,6 +103,12 @@ window.Account = (function () {
         return cred.user.updateProfile({ displayName: nick });
       });
     });
+  }
+
+  function setPhoto(dataUrl) {
+    if (!user) return Promise.resolve();
+    if (profile) { profile.photo = dataUrl; notify(); }
+    return db.collection("users").doc(user.uid).update({ photo: dataUrl }).catch(function () {});
   }
 
   function login(email, pass) { return auth.signInWithEmailAndPassword(email, pass); }
@@ -110,6 +138,7 @@ window.Account = (function () {
         tx.set(db.collection("nicks").doc(key), { uid: u.uid });
         tx.set(db.collection("users").doc(u.uid), {
           nick: nick, nickLower: key, email: u.email || "", lang: "ru",
+          photo: u.photoURL || null, // аватар из Google
           totalScore: 0, games: 0,
           created: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -205,6 +234,8 @@ window.Account = (function () {
     email: function () { return user && user.email; },
     profile: function () { return profile; },
     nick: function () { return (profile && profile.nick) || (user && user.displayName) || null; },
+    photo: function () { return (profile && profile.photo) || (user && user.photoURL) || null; },
+    setPhoto: setPhoto,
     lang: function () { return (profile && profile.lang) || "ru"; },
     register: register, login: login, logout: logout,
     loginGoogle: loginGoogle, isGoogle: isGoogle,

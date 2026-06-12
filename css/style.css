@@ -84,19 +84,60 @@ button:disabled { opacity: 0.55; cursor: default; }
   border: 1.5px solid var(--gold-dim); border-radius: 10px;
   box-shadow: inset 0 0 0 4px rgba(13, 35, 28, 0.6), inset 0 0 0 5px rgba(201, 162, 39, 0.25);
 }
-#menu-map {
+#menu-map, #welcome-map {
   position: absolute; inset: 0; width: 100%; height: 100%;
   opacity: 0.85; pointer-events: none;
 }
-#menu-map .menu-coast { fill: none; stroke: rgba(214, 184, 108, 0.22); stroke-width: 1.2; }
-#menu-map .menu-borders { fill: none; stroke: rgba(214, 184, 108, 0.08); stroke-width: 0.7; }
-#menu-map .menu-oxford circle { fill: var(--pink); }
-#menu-map .menu-oxford .pulse {
+#menu-map .menu-coast, #welcome-map .menu-coast { fill: none; stroke: rgba(214, 184, 108, 0.22); stroke-width: 1.2; }
+#menu-map .menu-borders, #welcome-map .menu-borders { fill: none; stroke: rgba(214, 184, 108, 0.08); stroke-width: 0.7; }
+#menu-map .menu-oxford circle, #welcome-map .menu-oxford circle { fill: var(--pink); }
+#menu-map .menu-oxford .pulse, #welcome-map .menu-oxford .pulse {
   fill: none; stroke: var(--pink); stroke-width: 2;
   animation: ox-pulse 2s ease-out infinite;
   transform-origin: center; transform-box: fill-box;
 }
 @keyframes ox-pulse { from { transform: scale(1); opacity: 0.9; } to { transform: scale(4); opacity: 0; } }
+
+/* ===================== ПАРАДНЫЙ ВХОД В КЛУБ ===================== */
+#screen-welcome { overflow: hidden; }
+.welcome-scroll {
+  position: relative; z-index: 2; height: 100%;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; align-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+}
+.welcome-inner {
+  margin: auto; display: flex; flex-direction: column; align-items: center;
+  gap: 9px; text-align: center; max-width: 560px;
+}
+.welcome-portrait { margin-top: 8px; }
+.welcome-portrait .leyla-photo { width: 126px; height: 158px; }
+.welcome-card {
+  margin-top: 10px; width: min(400px, 92vw);
+  background: linear-gradient(180deg, rgba(16, 38, 31, 0.92), rgba(11, 28, 23, 0.93));
+  border: 1px solid var(--gold-dim); border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(230, 205, 134, 0.12);
+  padding: 16px 18px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.welcome-note {
+  font-family: var(--serif); font-style: italic;
+  color: var(--cream-dim); font-size: 14.5px; line-height: 1.5;
+}
+.welcome-wait {
+  color: var(--gold-soft); font-size: 13.5px; padding: 4px 0 6px;
+  animation: member-check 1.6s ease-in-out infinite;
+}
+@keyframes member-check { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.welcome-actions { display: flex; flex-direction: column; gap: 10px; }
+.btn-big.btn-join {
+  background: linear-gradient(180deg, #34635a, #26483f);
+  color: var(--cream); border: 1px solid var(--gold-dim);
+}
+.welcome-lang {
+  position: absolute; z-index: 5;
+  top: max(20px, env(safe-area-inset-top)); right: 22px;
+}
 
 .menu-scroll {
   position: relative; z-index: 2; height: 100%;
@@ -173,6 +214,27 @@ button:disabled { opacity: 0.55; cursor: default; }
 .account-btn:hover { border-color: var(--gold); }
 #leaders-table tr.me td { color: var(--pink-soft); font-weight: 900; }
 .setup-row .btn-big { padding: 11px 14px; font-size: 15px; }
+
+/* аватары игроков */
+img.av {
+  width: 22px; height: 22px; border-radius: 50%; object-fit: cover;
+  border: 1.5px solid var(--gold-dim); vertical-align: -6px; margin-right: 4px;
+}
+.score-chip img.av { width: 20px; height: 20px; margin-right: 2px; border-color: var(--pc); vertical-align: middle; }
+.account-btn img.av { width: 26px; height: 26px; }
+#leaders-table img.av { width: 24px; height: 24px; }
+.avatar-row { align-items: flex-start; }
+.avatar-pick {
+  width: 84px; height: 84px; border-radius: 50%; overflow: hidden;
+  background: rgba(0, 0, 0, 0.25); border: 2px dashed var(--gold-dim);
+  font-size: 26px; color: var(--gold-soft);
+  display: flex; align-items: center; justify-content: center;
+}
+.avatar-pick img { width: 100%; height: 100%; object-fit: cover; }
+#handoff-avatar img {
+  width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+  border: 4px solid var(--gold); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
 .auth-divider {
   display: flex; align-items: center; gap: 12px; color: var(--cream-dim);
   font-size: 12.5px; font-weight: 700;

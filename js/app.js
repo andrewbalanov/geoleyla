@@ -36,7 +36,7 @@
     }
     return a;
   }
-  function fmtKm(d) { return Math.round(d).toLocaleString("ru-RU") + " км"; }
+  function fmtKm(d) { return Math.round(d).toLocaleString("ru-RU") + " " + window.I18N.t("km"); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function isLeyla(name) { return /лейл|leyla|leila/i.test(name || ""); }
 
@@ -58,7 +58,7 @@
   var G = null; // текущий матч
 
   // ---------- Сеть (онлайн-дуэль через PeerJS) ----------
-  var NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", code: "" };
+  var NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", remotePhoto: null, code: "" };
   var CODE_AB = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   function makeCode() {
     var s = "";
@@ -75,7 +75,7 @@
   }
   function netCleanup() {
     var c = NET.conn, p = NET.peer;
-    NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", code: "" };
+    NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", remotePhoto: null, code: "" };
     try { if (c) c.close(); } catch (e) {}
     try { if (p) p.destroy(); } catch (e) {}
     $("#online-banner").style.display = "none";
@@ -88,15 +88,13 @@
     $("#online-host-sec").style.display = "";
     $("#online-join-sec").style.display = "none";
     $("#online-code").textContent = "· · · ·";
-    $("#online-host-status").textContent = "Создаём комнату…";
+    $("#online-host-status").textContent = T("creating");
     var peer = NET.peer = new Peer("gmleyla-" + NET.code, { debug: 0 });
     peer.on("open", function () {
       $("#online-code").textContent = NET.code.split("").join(" ");
       var canLink = /^https?:$/.test(location.protocol);
       $("#btn-copy-invite").style.display = canLink ? "" : "none";
-      $("#online-host-status").textContent = canLink
-        ? "Отправь ссылку-приглашение или скажи код — и жди подключения…"
-        : "Скажи соперникам этот код и жди подключения…";
+      $("#online-host-status").textContent = canLink ? T("tellCodeOrLink") : T("tellCode");
     });
     peer.on("connection", function (c) {
       if (NET.conn) { try { c.close(); } catch (e) {} return; }
@@ -106,16 +104,16 @@
     peer.on("error", function (err) {
       var t = err && err.type;
       if (t === "unavailable-id") { hostRoom(); return; }
-      $("#online-host-status").textContent = "Ошибка сети (" + (t || err) + "). Попробуй создать заново.";
+      $("#online-host-status").textContent = T("netErr", t || err);
     });
   }
 
   function joinRoom() {
     var code = ($("#inp-join-code").value || "").replace(/\s/g, "").toUpperCase();
-    if (code.length !== 4) { $("#online-join-status").textContent = "Введи код из 4 символов"; return; }
+    if (code.length !== 4) { $("#online-join-status").textContent = T("code4"); return; }
     netCleanup();
     NET.isHost = false;
-    $("#online-join-status").textContent = "Подключаемся…";
+    $("#online-join-status").textContent = T("connecting");
     var peer = NET.peer = new Peer({ debug: 0 });
     peer.on("open", function () {
       var c = peer.connect("gmleyla-" + code, { reliable: true });
@@ -124,20 +122,21 @@
     });
     peer.on("error", function (err) {
       var t = err && err.type;
-      if (t === "peer-unavailable") $("#online-join-status").textContent = "Комната не найдена. Проверь код!";
-      else $("#online-join-status").textContent = "Ошибка сети (" + (t || err) + ")";
+      if (t === "peer-unavailable") $("#online-join-status").textContent = T("roomNotFound");
+      else $("#online-join-status").textContent = T("netErr", t || err);
     });
   }
 
   function bindConn(c) {
     c.on("open", function () {
       NET.active = true;
-      netSend({ t: "hello", name: myName() });
-      if (!NET.isHost) $("#online-join-status").textContent = "Подключилась! Ждём, пока хост выберет режим… 🎓";
+      netSend({ t: "hello", name: myName(),
+        photo: (window.Account && Account.isIn() && Account.photo()) || null });
+      if (!NET.isHost) $("#online-join-status").textContent = T("joinedWait");
     });
     c.on("data", onNetMsg);
-    c.on("close", function () { onNetDrop("Соединение потеряно 😢"); });
-    c.on("error", function () { onNetDrop("Ошибка соединения 😢"); });
+    c.on("close", function () { onNetDrop(T("netLost")); });
+    c.on("error", function () { onNetDrop(T("netLost")); });
   }
 
   function onNetDrop(text) {
@@ -146,7 +145,7 @@
     netCleanup();
     stopTimer();
     if (inGame || !$("#screen-online").classList.contains("active")) {
-      $("#net-drop-text").textContent = text || "Соединение потеряно";
+      $("#net-drop-text").textContent = text || T("netLost");
       $("#overlay-net").classList.add("show");
     } else {
       $("#online-join-status").textContent = text || "Соединение потеряно";
@@ -158,8 +157,9 @@
     if (!msg || !msg.t) return;
     if (msg.t === "hello") {
       NET.remoteName = String(msg.name || "Соперник").slice(0, 14);
+      NET.remotePhoto = (typeof msg.photo === "string" && msg.photo.length < 60000) ? msg.photo : null;
       if (NET.isHost) {
-        $("#online-host-status").textContent = "✔ " + NET.remoteName + " подключилась!";
+        $("#online-host-status").textContent = T("joined", NET.remoteName);
       }
       renderMenu();
       showScreen("screen-menu");
@@ -178,7 +178,7 @@
       // хост или гость прервал матч — оба в меню, сессия живёт
       if (G && G.online) quitToMenu(true);
     } else if (msg.t === "bye") {
-      onNetDrop("Соперник вышел из онлайн-сессии");
+      onNetDrop(T("oppLeft"));
     }
   }
 
@@ -344,8 +344,8 @@
   }
 
   // ---------- Меню ----------
-  function renderMenuMap() {
-    var host = $("#menu-map");
+  function renderMenuMap(sel) {
+    var host = $(sel || "#menu-map");
     if (host.dataset.done) return;
     host.dataset.done = "1";
     var W = 1000, H = 520;
@@ -367,11 +367,13 @@
 
   // ---------- Фото Лейлы (assets/leyla.jpg → localStorage → плейсхолдер) ----------
   function initLeylaPhoto() {
-    var slot = $("#leyla-photo");
-    if (!slot) return;
+    var slots = $$(".leyla-photo");
+    if (!slots.length) return;
     function showSrc(src) {
-      slot.innerHTML = '<img src="' + src + '" alt="Лейла">';
-      slot.classList.add("has-photo");
+      slots.forEach(function (slot) {
+        slot.innerHTML = '<img src="' + src + '" alt="Лейла">';
+        slot.classList.add("has-photo");
+      });
     }
     // пробуем jpg → png → сохранённое в браузере фото
     function probeChain(srcs, i) {
@@ -400,7 +402,7 @@
       btn.className = "mode-card";
       btn.style.setProperty("--d", (idx * 0.04) + "s");
       btn.innerHTML = '<span class="mc-icon">' + m.icon + '</span>' +
-        '<span class="mc-text"><b>' + m.name + '</b><small>' + m.desc + "</small></span>" +
+        '<span class="mc-text"><b>' + I18N.modeName(key, m.name) + '</b><small>' + I18N.modeDesc(key, m.desc) + "</small></span>" +
         '<span class="mc-arrow">›</span>';
       btn.onclick = function () { openSetup(key); };
       list.appendChild(btn);
@@ -410,7 +412,7 @@
       ob.className = "mode-card mode-card-online";
       ob.style.setProperty("--d", (Object.keys(MODES).length * 0.04) + "s");
       ob.innerHTML = '<span class="mc-icon">🌐</span>' +
-        '<span class="mc-text"><b>Онлайн-дуэль</b><small>С разных устройств — по коду комнаты</small></span>' +
+        '<span class="mc-text"><b>' + T('online') + '</b><small>' + T('onlineDesc') + '</small></span>' +
         '<span class="mc-arrow">›</span>';
       ob.onclick = openOnline;
       list.appendChild(ob);
@@ -428,10 +430,8 @@
     var b = $("#online-banner");
     if (!NET.active) { b.style.display = "none"; return; }
     var who = esc(NET.remoteName || "…");
-    b.innerHTML = (NET.isHost
-      ? "🌐 Онлайн-сессия с <b>" + who + "</b> — выбери режим!"
-      : "🌐 Онлайн-сессия с <b>" + who + "</b>. Хост выбирает режим…") +
-      '<button id="btn-leave-net">Выйти из онлайн-сессии</button>';
+    b.innerHTML = (NET.isHost ? T("bannerHost", who) : T("bannerGuest", who)) +
+      '<button id="btn-leave-net">' + T("leaveNet") + "</button>";
     b.style.display = "block";
     $("#btn-leave-net").onclick = leaveOnlineSession;
   }
@@ -455,7 +455,7 @@
       el.innerHTML = '<span class="h2h-name" style="color:' + PLAYER_COLORS[0] + '">' + esc(settings.p1) + "</span>" +
         '<span class="h2h-score">' + (rec[settings.p1] || 0) + " : " + (rec[settings.p2] || 0) + "</span>" +
         '<span class="h2h-name" style="color:' + PLAYER_COLORS[1] + '">' + esc(settings.p2) + "</span>" +
-        (rec.draws ? '<span class="h2h-draws">ничьих: ' + rec.draws + "</span>" : "");
+        (rec.draws ? '<span class="h2h-draws">' + T("draws") + ": " + rec.draws + "</span>" : "");
       el.style.display = "flex";
     } else el.style.display = "none";
   }
@@ -496,7 +496,7 @@
     $("#row-p1").style.display = online ? "none" : "";
     $("#row-p2").style.display = online ? "none" : (settings.twoPlayers ? "" : "none");
     $("#setup-online-note").style.display = online ? "" : "none";
-    if (online) $("#setup-online-note").innerHTML = "🌐 Онлайн-дуэль: <b style='color:" + PLAYER_COLORS[0] + "'>" + esc(myName()) + "</b> против <b style='color:" + PLAYER_COLORS[1] + "'>" + esc(NET.remoteName) + "</b>";
+    if (online) $("#setup-online-note").innerHTML = T("vsNote", PLAYER_COLORS[0], esc(myName()), PLAYER_COLORS[1], esc(NET.remoteName));
     showScreen("screen-setup");
   }
 
@@ -544,7 +544,7 @@
   function startMatch() {
     readSettings();
     var questions = buildQuestions(pendingMode, settings.nQ, settings.diff, settings.region);
-    if (!questions.length) { alert("Нет вопросов для этого режима"); return; }
+    if (!questions.length) { alert(T("noQuestions")); return; }
 
     if (NET.active && NET.isHost) {
       netSend({ t: "start", mode: pendingMode, questions: questions, timer: settings.timer, hostName: myName() });
@@ -552,8 +552,13 @@
       return;
     }
 
-    var players = [{ name: settings.p1, color: PLAYER_COLORS[0], score: 0, answers: [] }];
-    if (settings.twoPlayers) players.push({ name: settings.p2, color: PLAYER_COLORS[1], score: 0, answers: [] });
+    // фото из аккаунта получает игрок, чьё имя совпадает с ником
+    var myPhoto = (window.Account && Account.isIn()) ? Account.photo() : null;
+    var myNick = (window.Account && Account.nick()) || "";
+    var players = [{ name: settings.p1, color: PLAYER_COLORS[0], score: 0, answers: [],
+      photo: myPhoto && settings.p1 === myNick ? myPhoto : null }];
+    if (settings.twoPlayers) players.push({ name: settings.p2, color: PLAYER_COLORS[1], score: 0, answers: [],
+      photo: myPhoto && settings.p2 === myNick ? myPhoto : null });
     G = {
       mode: pendingMode, online: false, myIdx: 0,
       players: players, questions: questions,
@@ -566,11 +571,14 @@
   function startOnlineMatch(mode, questions, timer, hostName, iAmHost) {
     pendingMode = mode;
     var me = myName();
+    var myPhoto = (window.Account && Account.isIn()) ? Account.photo() : null;
     G = {
       mode: mode, online: true, myIdx: iAmHost ? 0 : 1,
       players: [
-        { name: iAmHost ? me : String(hostName || "Хост").slice(0, 14), color: PLAYER_COLORS[0], score: 0, answers: [] },
-        { name: iAmHost ? NET.remoteName : me, color: PLAYER_COLORS[1], score: 0, answers: [] }
+        { name: iAmHost ? me : String(hostName || "Хост").slice(0, 14), color: PLAYER_COLORS[0], score: 0, answers: [],
+          photo: iAmHost ? myPhoto : (NET.remotePhoto || null) },
+        { name: iAmHost ? NET.remoteName : me, color: PLAYER_COLORS[1], score: 0, answers: [],
+          photo: iAmHost ? (NET.remotePhoto || null) : myPhoto }
       ],
       questions: questions, timerSec: timer || 0,
       qIndex: 0, order: [0, 1], turn: 0, phase: "idle", guess: null
@@ -623,7 +631,10 @@
     stopTimer();
     var ov = $("#overlay-handoff");
     ov.style.setProperty("--pc", player.color);
-    $("#handoff-sub").textContent = isFirst ? "Первым отвечает" : "Передай устройство — не подглядывай! 🙈";
+    $("#handoff-sub").textContent = isFirst ? T("firstUp") : T("passDevice");
+    $("#handoff-avatar").innerHTML = player.photo
+      ? '<img src="' + player.photo + '" alt="" style="border-color:' + player.color + '">'
+      : "";
     $("#handoff-name").textContent = player.name;
     $("#handoff-name").style.color = player.color;
     ov.classList.add("show");
@@ -639,7 +650,7 @@
       if (!G.online || true) cur().reset(false);
       cur().setClickEnabled(true);
       var hint = $("#map-hint");
-      hint.textContent = "👆 Коснись карты, чтобы поставить метку";
+      hint.textContent = T("tapMap");
       hint.style.display = "";
       hint.classList.add("show");
     } else {
@@ -663,11 +674,12 @@
     if (q.img) html += '<img class="q-img" src="' + q.img + '" alt="">';
     // язык названий: en — английское крупно, русское мелко
     var tMain = q.title, tSub = q.sub;
-    if (gameLang === "en" && q.sub && q.sub !== q.title) { tMain = q.sub; tSub = q.title; }
+    if (I18N.lang() === "en" && q.sub && q.sub !== q.title) { tMain = q.sub; tSub = q.title; }
+    if (q.mode === "flagsmap") { tMain = T("whoseFlag"); tSub = null; }
     html += '<div class="q-line"><div class="q-titles"><div class="q-title">' + esc(tMain) + "</div>";
     if (tSub && tSub !== tMain) html += '<div class="q-sub">' + esc(tSub) + "</div>";
     html += "</div>";
-    if (q.chip) html += '<span class="chip">' + esc(q.chip) + "</span>";
+    if (q.chip) html += '<span class="chip">' + esc(I18N.typeOf(q.chip)) + "</span>";
     html += "</div>";
     card.innerHTML = html;
   }
@@ -699,7 +711,7 @@
     if (!el || !G || !G.online) return;
     var opp = G.players[1 - G.myIdx];
     var answered = !!opp.answers[G.qIndex];
-    el.textContent = "· " + opp.name + (answered ? " ответил(а) ✔" : " думает…");
+    el.textContent = answered ? T("oppDone", opp.name) : T("oppThinking", opp.name);
   }
 
   function renderTurnBar() {
@@ -707,7 +719,7 @@
     if (G.online) {
       var me = G.players[G.myIdx];
       tb.innerHTML = '<span class="dot" style="background:' + me.color + '"></span>' +
-        "<span>Отвечай, <b style=\"color:" + me.color + '">' + esc(me.name) + "</b></span>" +
+        "<span>" + T("youAnswer") + "<b style=\"color:" + me.color + '">' + esc(me.name) + "</b></span>" +
         '<span id="opp-status"></span>' +
         '<span id="timer-num"></span>';
       tb.style.display = "flex";
@@ -715,7 +727,7 @@
     } else {
       var p = curPlayer();
       tb.innerHTML = '<span class="dot" style="background:' + p.color + '"></span>' +
-        "<span>Отвечает: <b style=\"color:" + p.color + '">' + esc(p.name) + "</b></span>" +
+        "<span>" + T("answers") + "<b style=\"color:" + p.color + '">' + esc(p.name) + "</b></span>" +
         '<span id="timer-num"></span>';
       tb.style.display = "flex";
     }
@@ -726,7 +738,8 @@
     var el = $("#score-chips");
     el.innerHTML = G.players.map(function (p, i) {
       return '<span class="score-chip" id="score-chip-' + i + '" style="--pc:' + p.color + '">' +
-        '<i></i>' + esc(p.name) + ' <b id="score-val-' + i + '">' + p.score + "</b></span>";
+        (p.photo ? '<img class="av" src="' + p.photo + '" alt="">' : "<i></i>") +
+        esc(p.name) + ' <b id="score-val-' + i + '">' + p.score + "</b></span>";
     }).join("");
   }
 
@@ -800,11 +813,14 @@
         var hitFid = cur().countryAt(G.guess);
         if (hitFid != null && hitFid !== q.fid) {
           ans.hitFid = hitFid;
+          var hf = cur().features[hitFid];
           if (stageFor(q) === "world") {
             var hc = fidToCountry[hitFid];
             ans.hitName = hc ? hc.name : cur().featureName(hitFid);
+            ans.hitNameEn = hc ? hc.nameEn : ans.hitName;
           } else {
             ans.hitName = cur().featureName(hitFid);
+            ans.hitNameEn = (hf && hf.properties && hf.properties.orig) || ans.hitName;
           }
         }
       }
@@ -817,7 +833,7 @@
       G.phase = "wait";
       var opp = G.players[1 - G.myIdx];
       var hint = $("#map-hint");
-      hint.textContent = "Ответ принят! Ждём: " + opp.name + "… ⏳";
+      hint.textContent = T("sentWait", opp.name);
       hint.style.display = "";
       hint.classList.add("show");
       tryReveal();
@@ -851,17 +867,22 @@
     var q = curQ();
     var rows = q.kind === "choice" ? revealChoice(q) : revealMap(q);
 
-    $("#reveal-title").innerHTML = esc(q.reveal) +
-      (q.revealSub ? '<div class="reveal-sub">' + esc(q.revealSub) + "</div>" : "");
+    var rMain = q.reveal, rSub = q.revealSub;
+    if (q.mode === "flagsmap" || q.mode === "flagquiz") {
+      var fn = I18N.lang() === "en" && q.revealSub ? q.revealSub : q.reveal.replace(/^(Это флаг: |Флаг: )/, "");
+      rMain = T("itsFlag", fn); rSub = null;
+    } else if (I18N.lang() === "en" && q.revealSub) { rMain = q.revealSub; rSub = q.reveal; }
+    $("#reveal-title").innerHTML = esc(rMain) +
+      (rSub && rSub !== rMain ? '<div class="reveal-sub">' + esc(rSub) + "</div>" : "");
     $("#reveal-rows").innerHTML = rows;
     var last = G.qIndex + 1 >= G.questions.length;
     var nb = $("#btn-next");
     if (G.online && !NET.isHost) {
       nb.disabled = true;
-      nb.textContent = last ? "Итоги — ждём хоста…" : "Дальше — ждём хоста…";
+      nb.textContent = last ? T("finalsWait") : T("nextWait");
     } else {
       nb.disabled = false;
-      nb.textContent = last ? "Итоги 🏆" : "Дальше ›";
+      nb.textContent = last ? T("finals") : T("next");
     }
     var panel = $("#reveal-panel");
     panel.classList.add("show");
@@ -918,10 +939,11 @@
     return G.players.map(function (p) {
       var a = p.answers[G.qIndex] || { pts: 0 };
       var info;
-      if (!a.guess) info = "не успел(а) ответить";
+      var hitNm = I18N.lang() === "en" && a.hitNameEn ? a.hitNameEn : a.hitName;
+      if (!a.guess) info = T("noAnswer");
       else if (q.kind === "point") info = a.d <= q.r ? "🎯 " + fmtKm(a.d) : fmtKm(a.d);
-      else if (a.d <= 0.5) info = "🎯 точно в цель!";
-      else info = "мимо на " + fmtKm(a.d) + (a.hitName ? " (попал(а) в: " + esc(a.hitName) + ")" : "");
+      else if (a.d <= 0.5) info = T("bullseye");
+      else info = T("missBy", fmtKm(a.d)) + (hitNm ? T("hitInto", esc(hitNm)) : "");
       p.score += a.pts;
       return revRow(p, info, a.pts);
     }).join("");
@@ -951,11 +973,12 @@
     return G.players.map(function (p) {
       var a = p.answers[G.qIndex] || { pts: 0 };
       var info;
-      if (!a.guess) info = "не успел(а) ответить";
-      else if (a.pts >= 1000) info = "✔ верно!";
+      if (!a.guess) info = T("noAnswer");
+      else if (a.pts >= 1000) info = T("correct");
       else {
         var c = iso2ToCountry[a.guess];
-        info = "✘ это флаг: " + (c ? esc(c.name) : "другой страны");
+        var cn = c ? (I18N.lang() === "en" ? c.nameEn : c.name) : "?";
+        info = T("wrongFlag", esc(cn));
       }
       p.score += a.pts;
       return revRow(p, info, a.pts);
@@ -979,7 +1002,7 @@
       var co = iso2ToCountry[q.iso2];
       if (!co) return null;
       return { img: infoImg(c.img), title: co.name, sub: co.nameEn,
-        cap: "Столица: " + co.capital + " · " + co.capitalEn, text: c.t };
+        cap: T("capitalCap") + co.capital + " · " + co.capitalEn, text: c.t };
     }
     if (q.mode === "usa" || q.mode === "france") {
       var m = maps[stageFor(q)];
@@ -1013,7 +1036,7 @@
     var wl = $("#card-wines");
     if (d.wines) {
       wl.style.display = "";
-      wl.innerHTML = '<div class="card-wines-h">🍷 Пять знаменитых вин региона</div>' +
+      wl.innerHTML = '<div class="card-wines-h">' + T("wines5") + "</div>" +
         d.wines.map(function (w) {
           return '<div class="wine-row"><b>' + esc(w.n) + "</b><span>" + esc(w.d) + "</span></div>";
         }).join("");
@@ -1062,26 +1085,26 @@
       var w = ps[0].score === ps[1].score ? null : (ps[0].score > ps[1].score ? ps[0] : ps[1]);
       saveH2H(w);
       if (w) {
-        if (isLeyla(w.name)) headline = "🎓 Оксфорд всё ближе, <b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
-        else headline = "🏆 Победа: <b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
+        if (isLeyla(w.name)) headline = T("leylaWin") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
+        else headline = T("win") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
         sub = ps[0].score.toLocaleString("ru-RU") + " : " + ps[1].score.toLocaleString("ru-RU");
         Sound.win();
         confetti(w.color);
       } else {
-        headline = "🤝 Ничья!";
+        headline = T("drawT");
         sub = ps[0].score.toLocaleString("ru-RU") + " : " + ps[1].score.toLocaleString("ru-RU");
         Sound.meh();
       }
     } else {
-      headline = isLeyla(ps[0].name) ? "🎓 Так держать, будущая студентка Оксфорда!" : "Твой результат";
-      sub = ps[0].score.toLocaleString("ru-RU") + " из " + (G.questions.length * 1000).toLocaleString("ru-RU");
+      headline = isLeyla(ps[0].name) ? T("leylaWin").replace(/, $/, "!").replace(/,\s*$/, "!") : T("yourResult");
+      sub = ps[0].score.toLocaleString("ru-RU") + " " + T("outOf") + " " + (G.questions.length * 1000).toLocaleString("ru-RU");
       Sound.win();
       confetti(ps[0].color);
     }
     creditScore();
     $("#result-headline").innerHTML = headline;
     $("#result-score").textContent = sub;
-    $("#result-mode").textContent = MODES[G.mode].icon + " " + MODES[G.mode].name + (G.online ? " · онлайн" : "");
+    $("#result-mode").textContent = MODES[G.mode].icon + " " + I18N.modeName(G.mode, MODES[G.mode].name) + (G.online ? T("onlineTag") : "");
 
     var rows = G.questions.map(function (q, qi) {
       var bestPts = Math.max.apply(null, ps.map(function (x) { return x.answers[qi] ? x.answers[qi].pts : 0; }));
@@ -1090,17 +1113,20 @@
         var v = a ? a.pts : 0;
         return '<td class="' + (ps.length === 2 && v === bestPts && v > 0 ? "best" : "") + '">' + v + "</td>";
       }).join("");
-      var label = q.flag ? '<img class="result-flag" src="assets/flags/' + q.flag + '.png"> ' + esc(q.reveal.replace("Это флаг: ", "")) : esc(q.title);
+      var en = I18N.lang() === "en";
+      var label = q.flag
+        ? '<img class="result-flag" src="assets/flags/' + q.flag + '.png"> ' + esc(en && q.revealSub ? q.revealSub : q.reveal.replace(/^(Это флаг: |Флаг: )/, ""))
+        : esc(en && q.sub && q.sub !== q.title ? q.sub : q.title);
       return "<tr><td>" + (qi + 1) + "</td><td class=\"q\">" + label + "</td>" + cells + "</tr>";
     }).join("");
-    var head = "<tr><th>#</th><th>Вопрос</th>" + ps.map(function (p) {
+    var head = "<tr><th>#</th><th>" + T("question") + "</th>" + ps.map(function (p) {
       return '<th style="color:' + p.color + '">' + esc(p.name) + "</th>";
     }).join("") + "</tr>";
     $("#result-table").innerHTML = head + rows;
 
     var rb = $("#btn-rematch");
-    if (G.online && !NET.isHost) { rb.disabled = true; rb.textContent = "⚔ Реванш запускает хост"; }
-    else { rb.disabled = false; rb.textContent = "⚔ Реванш"; }
+    if (G.online && !NET.isHost) { rb.disabled = true; rb.textContent = T("rematchHost"); }
+    else { rb.disabled = false; rb.textContent = T("rematch"); }
 
     renderH2H2($("#result-h2h"));
     showScreen("screen-results");
@@ -1123,9 +1149,9 @@
     var h = store("gm_h2h") || {};
     var rec = h[h2hKey(G.players[0].name, G.players[1].name)];
     if (!rec) { el.textContent = ""; return; }
-    el.textContent = "Общий счёт: " + G.players[0].name + " " + (rec[G.players[0].name] || 0) +
+    el.textContent = T("totalH2H") + G.players[0].name + " " + (rec[G.players[0].name] || 0) +
       " : " + (rec[G.players[1].name] || 0) + " " + G.players[1].name +
-      (rec.draws ? " (ничьих: " + rec.draws + ")" : "");
+      (rec.draws ? " (" + T("draws") + ": " + rec.draws + ")" : "");
   }
 
   function rematch() {
@@ -1187,21 +1213,39 @@
     requestAnimationFrame(frame);
   }
 
+  // ---------- Локализация ----------
+  var T = function () { return window.I18N.t.apply(null, arguments); };
+  function applyLang() {
+    document.documentElement.lang = I18N.lang();
+    $$("[data-i18n]").forEach(function (el) { el.innerHTML = T(el.getAttribute("data-i18n")); });
+    $$("[data-i18n-ph]").forEach(function (el) { el.placeholder = T(el.getAttribute("data-i18n-ph")); });
+    $$("#btn-lang, #btn-welcome-lang").forEach(function (lb) {
+      lb.textContent = I18N.lang().toUpperCase();
+    });
+  }
+  function switchLang(l) {
+    I18N.setLang(l);
+    if (window.Account && Account.isIn()) Account.setLang(I18N.lang());
+    applyLang();
+    renderMenu();
+  }
+
   // ---------- Аккаунт, профиль, рейтинг ----------
-  var gameLang = "ru"; // 'en' меняет местами основное/второе название
+  var gameLang = "ru"; // зеркалит I18N.lang() для подписей вопросов
 
   function renderAccountBox() {
     var box = $("#account-box");
     if (!box) return;
     if (!window.Account || !Account.isIn()) {
-      box.innerHTML = '<button class="account-btn" id="btn-open-auth">👤 Вход · Регистрация</button>';
+      box.innerHTML = '<button class="account-btn" id="btn-open-auth">' + T("loginBtn") + "</button>";
       var b = $("#btn-open-auth");
       if (b) b.onclick = openAuth;
       return;
     }
     var p = Account.profile() || {};
-    box.innerHTML = '<button class="account-btn in" id="btn-open-profile">👤 <b>' + esc(Account.nick() || "Игрок") +
-      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " очков · игр: " + (p.games || 0) + "</span></button>";
+    var ava = Account.photo() ? '<img class="av" src="' + Account.photo() + '" alt="">' : "👤";
+    box.innerHTML = '<button class="account-btn in" id="btn-open-profile">' + ava + ' <b>' + esc(Account.nick() || "Игрок") +
+      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " " + T("pts") + " · " + T("games") + ": " + (p.games || 0) + "</span></button>";
     var pb = $("#btn-open-profile");
     if (pb) pb.onclick = openProfile;
   }
@@ -1215,31 +1259,94 @@
       store("gm_settings", settings);
       renderH2H();
     }
-    gameLang = (window.Account && Account.lang()) || "ru";
+    var accLang = (window.Account && Account.isIn() && Account.lang()) || null;
+    if (accLang && accLang !== I18N.lang()) {
+      I18N.setLang(accLang);
+      applyLang();
+      renderMenu();
+    }
+    gameLang = I18N.lang();
+    applyGate();
+  }
+
+  // сжать выбранное фото до квадрата 96px (dataURL ~5КБ — хранится прямо в профиле)
+  var pendingAuthPhoto = null;
+  function pickAvatar(fileInput, btn, done) {
+    fileInput.onchange = function () {
+      var f = this.files && this.files[0];
+      if (!f) return;
+      var img = new Image();
+      img.onload = function () {
+        var size = 96;
+        var cv = document.createElement("canvas");
+        cv.width = cv.height = size;
+        var k = Math.max(size / img.width, size / img.height);
+        var w = img.width * k, h = img.height * k;
+        cv.getContext("2d").drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        var url = cv.toDataURL("image/jpeg", 0.8);
+        btn.innerHTML = '<img src="' + url + '" alt="">';
+        done(url);
+      };
+      img.src = URL.createObjectURL(f);
+      this.value = "";
+    };
+    btn.onclick = function () { fileInput.click(); };
+  }
+
+  function avatarHTML(photo, cls) {
+    return photo ? '<img class="' + (cls || "av") + '" src="' + photo + '" alt="">' : "";
   }
 
   var authMode = "login";
-  function openAuth() {
-    authMode = "login";
-    setSeg("#seg-auth", "login");
-    $("#auth-row-nick").style.display = "none";
-    $("#btn-auth-go").textContent = "Войти";
+  function openAuth(mode) {
+    authMode = mode === "reg" ? "reg" : "login";
+    setSeg("#seg-auth", authMode);
+    var isReg = authMode === "reg";
+    $("#auth-row-nick").style.display = isReg ? "" : "none";
+    $("#auth-row-photo").style.display = isReg ? "" : "none";
+    $("#btn-auth-go").textContent = isReg ? T("signUp") : T("signIn");
     $("#auth-status").textContent = "";
     showScreen("screen-auth");
+  }
+
+  // ---------- Парадный вход: в клуб пускаем только его членов ----------
+  var pendingJoin = null;
+  function revealWelcome() {
+    $("#welcome-wait").style.display = "none";
+    $("#welcome-actions").style.display = "";
+    if (pendingJoin) $("#welcome-status").textContent = T("inviteFirst");
+  }
+  function applyGate() {
+    var inn = window.Account && Account.isIn();
+    var act = $(".screen.active");
+    var onGate = act && (act.id === "screen-welcome" || act.id === "screen-auth");
+    if (inn && onGate) {
+      renderMenu();
+      showScreen("screen-menu");
+      if (pendingJoin) { var c = pendingJoin; pendingJoin = null; goJoin(c); }
+    } else if (!inn) {
+      revealWelcome();
+    }
+  }
+  function goJoin(code) {
+    openOnline();
+    $("#online-join-sec").style.display = "";
+    $("#inp-join-code").value = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    $("#online-join-status").textContent = T("invited");
+    setTimeout(joinRoom, 500);
   }
 
   function authGo() {
     var email = ($("#auth-email").value || "").trim();
     var pass = $("#auth-pass").value || "";
     var st = $("#auth-status");
-    st.textContent = "⏳ Секунду…";
+    st.textContent = T("waitSec");
     var p = authMode === "reg"
-      ? Account.register($("#auth-nick").value, email, pass)
+      ? Account.register($("#auth-nick").value, email, pass, pendingAuthPhoto)
       : Account.login(email, pass);
     p.then(function () {
       st.textContent = "";
-      renderMenu();
-      showScreen("screen-menu");
+      applyGate();
     }).catch(function (e) {
       st.textContent = "⚠️ " + Account.errText(e);
     });
@@ -1247,9 +1354,11 @@
 
   function openProfile() {
     var p = Account.profile() || {};
+    $("#prof-photo-btn").innerHTML = Account.photo()
+      ? '<img src="' + Account.photo() + '" alt="">' : "<span>📷</span>";
     $("#prof-nick").value = Account.nick() || "";
-    $("#prof-summary").innerHTML = "Email: <b>" + esc(Account.email() || "—") + "</b> · Очки: <b>" +
-      (p.totalScore || 0).toLocaleString("ru-RU") + "</b> · Игр: <b>" + (p.games || 0) + "</b>";
+    $("#prof-summary").innerHTML = T("emailW") + ": <b>" + esc(Account.email() || "—") + "</b> · " + T("scoreW") + ": <b>" +
+      (p.totalScore || 0).toLocaleString("ru-RU") + "</b> · " + T("gamesW") + ": <b>" + (p.games || 0) + "</b>";
     setSeg("#seg-lang", Account.lang());
     $("#prof-status").textContent = "";
     $("#prof-old-pass").value = $("#prof-new-pass").value = "";
@@ -1264,22 +1373,23 @@
 
   function openLeaders() {
     showScreen("screen-leaders");
-    $("#leaders-status").textContent = "⏳ Загружаем рейтинг…";
+    $("#leaders-status").textContent = T("loadingLb");
     $("#leaders-table").innerHTML = "";
     renderH2H2($("#leaders-h2h"));
-    if (!window.Account || !firebase) { $("#leaders-status").textContent = "Рейтинг недоступен"; return; }
+    if (!window.Account || !firebase) { $("#leaders-status").textContent = T("lbUnavail"); return; }
     Account.leaderboard().then(function (rows) {
       if (!rows.length) {
-        $("#leaders-status").textContent = "Пока никто не сыграл — будь первой, Лейла!";
+        $("#leaders-status").textContent = T("lbEmpty");
         return;
       }
       $("#leaders-status").textContent = "";
       var me = Account.uid();
-      $("#leaders-table").innerHTML = "<tr><th>#</th><th>Игрок</th><th>Очки</th><th>Игр</th></tr>" +
+      $("#leaders-table").innerHTML = "<tr><th>#</th><th>" + T("playerW") + "</th><th>" + T("scoreW") + "</th><th>" + T("gamesW") + "</th></tr>" +
         rows.map(function (r, i) {
           var medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+          var ava = r.photo ? '<img class="av" src="' + r.photo + '" alt="">' : "";
           return '<tr class="' + (r.uid === me ? "me" : "") + '"><td>' + medal + '</td><td class="q">' +
-            esc(r.nick || "—") + "</td><td>" + (r.score || 0).toLocaleString("ru-RU") + "</td><td>" + r.games + "</td></tr>";
+            ava + esc(r.nick || "—") + "</td><td>" + (r.score || 0).toLocaleString("ru-RU") + "</td><td>" + r.games + "</td></tr>";
         }).join("");
     }).catch(function (e) {
       $("#leaders-status").textContent = "⚠️ " + Account.errText(e);
@@ -1374,7 +1484,7 @@
     $("#btn-rematch").onclick = rematch;
     $("#btn-results-menu").onclick = quitToMenu;
     $("#btn-quit").onclick = function () {
-      if (confirm("Завершить игру и выйти в меню?")) quitToMenu();
+      if (confirm(T("quitQ"))) quitToMenu();
     };
     $("#btn-trophy").onclick = openLeaders;
     $("#btn-info").onclick = function () { $("#overlay-info").classList.add("show"); };
@@ -1421,7 +1531,7 @@
       if (!NET.code) return;
       var link = location.origin + location.pathname + "?join=" + NET.code;
       var done = function () {
-        $("#online-host-status").textContent = "Ссылка скопирована — отправь её и жди подключения! 💌";
+        $("#online-host-status").textContent = T("inviteCopied");
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(done, function () { window.prompt("Скопируй ссылку:", link); });
@@ -1447,7 +1557,9 @@
     });
 
     // аккаунты и рейтинг
+    var accountOn = false;
     if (window.Account && Account.init()) {
+      accountOn = true;
       Account.onChange(onAccountChange);
     }
     $("#seg-auth").addEventListener("click", function (e) {
@@ -1455,74 +1567,91 @@
       if (!b) return;
       authMode = b.getAttribute("data-val");
       $("#auth-row-nick").style.display = authMode === "reg" ? "" : "none";
-      $("#btn-auth-go").textContent = authMode === "reg" ? "Зарегистрироваться" : "Войти";
+      $("#auth-row-photo").style.display = authMode === "reg" ? "" : "none";
+      $("#btn-auth-go").textContent = authMode === "reg" ? T("signUp") : T("signIn");
       $("#auth-status").textContent = "";
     });
+    pickAvatar($("#auth-photo-file"), $("#auth-photo-btn"), function (url) { pendingAuthPhoto = url; });
+    pickAvatar($("#prof-photo-file"), $("#prof-photo-btn"), function (url) {
+      Account.setPhoto(url).then(function () { $("#prof-status").textContent = T("photoUpdated"); });
+    });
     $("#btn-auth-go").onclick = authGo;
-    $("#btn-auth-google").onclick = function () {
-      var st = $("#auth-status");
-      st.textContent = "⏳ Открываем окно Google…";
+    function googleSignIn(stEl) {
+      stEl.textContent = T("openingGoogle");
       Account.loginGoogle().then(function () {
-        st.textContent = "";
-        renderMenu();
-        showScreen("screen-menu");
+        stEl.textContent = "";
+        applyGate();
       }).catch(function (e) {
-        st.textContent = "⚠️ " + Account.errText(e);
+        stEl.textContent = "⚠️ " + Account.errText(e);
       });
-    };
+    }
+    $("#btn-auth-google").onclick = function () { googleSignIn($("#auth-status")); };
+    $("#btn-welcome-google").onclick = function () { googleSignIn($("#welcome-status")); };
+    $("#btn-welcome-login").onclick = function () { openAuth("login"); };
+    $("#btn-welcome-reg").onclick = function () { openAuth("reg"); };
     $("#auth-pass").addEventListener("keydown", function (e) { if (e.key === "Enter") authGo(); });
     $("#btn-auth-forgot").onclick = function () {
       var email = ($("#auth-email").value || "").trim();
-      if (!email) { $("#auth-status").textContent = "Введите email в поле выше и нажмите ещё раз"; return; }
+      if (!email) { $("#auth-status").textContent = T("enterEmailFirst"); return; }
       Account.resetPassword(email).then(function () {
-        $("#auth-status").textContent = "✉️ Письмо для сброса пароля отправлено на " + email;
+        $("#auth-status").textContent = T("resetSent", email);
       }).catch(function (e2) { $("#auth-status").textContent = "⚠️ " + Account.errText(e2); });
     };
-    $("#btn-auth-back").onclick = function () { showScreen("screen-menu"); };
+    $("#btn-auth-back").onclick = function () {
+      showScreen(window.Account && Account.isIn() ? "screen-menu" : "screen-welcome");
+    };
     $("#btn-prof-back").onclick = function () { renderMenu(); showScreen("screen-menu"); };
     $("#btn-leaders-back").onclick = function () { showScreen("screen-menu"); };
     $("#btn-logout").onclick = function () {
-      Account.logout().then(function () { renderMenu(); showScreen("screen-menu"); });
+      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
     };
     $("#btn-prof-nick").onclick = function () {
       Account.changeNick($("#prof-nick").value).then(function () {
-        $("#prof-status").textContent = "✔ Имя изменено";
+        $("#prof-status").textContent = T("nickChanged");
         onAccountChange();
       }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
     };
     $("#btn-prof-pass").onclick = function () {
       Account.changePassword($("#prof-old-pass").value, $("#prof-new-pass").value).then(function () {
-        $("#prof-status").textContent = "✔ Пароль изменён";
+        $("#prof-status").textContent = T("passChanged");
       }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
     };
     $("#btn-prof-email").onclick = function () {
       Account.changeEmail($("#prof-email-pass").value, ($("#prof-new-email").value || "").trim()).then(function () {
-        $("#prof-status").textContent = "✉️ Подтвердите смену по письму на новом адресе";
+        $("#prof-status").textContent = T("emailVerify");
       }).catch(function (e) { $("#prof-status").textContent = "⚠️ " + Account.errText(e); });
     };
     $("#seg-lang").addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b) return;
-      Account.setLang(b.getAttribute("data-val"));
-      gameLang = b.getAttribute("data-val");
+      switchLang(b.getAttribute("data-val"));
+      gameLang = I18N.lang();
     });
+    $("#btn-lang").onclick = function () {
+      switchLang(I18N.lang() === "ru" ? "en" : "ru");
+      gameLang = I18N.lang();
+    };
+    $("#btn-welcome-lang").onclick = $("#btn-lang").onclick;
 
     $("#inp-p1").addEventListener("input", renderH2H);
     initLeylaPhoto();
+    renderMenuMap("#welcome-map");
+    applyLang();
     renderAccountBox();
-    showScreen("screen-menu");
 
-    // открыли по ссылке-приглашению (?join=КОД) — подключаемся сами
+    // ссылка-приглашение (?join=КОД) — подключимся сразу после входа в клуб
     var joinCode = null;
     try { joinCode = new URLSearchParams(location.search).get("join"); } catch (e) {}
     if (joinCode) {
       history.replaceState(null, "", location.pathname);
-      openOnline();
-      $("#online-join-sec").style.display = "";
-      $("#inp-join-code").value = joinCode.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-      $("#online-join-status").textContent = "Тебя пригласили в игру! Подключаемся…";
-      setTimeout(joinRoom, 500);
+      pendingJoin = joinCode;
     }
+
+    // парадный вход: ждём ответ Firebase о членстве, гостям показываем кнопки входа
+    if (!accountOn) revealWelcome();
+    setTimeout(function () {
+      if (!(window.Account && Account.isIn())) revealWelcome();
+    }, 4000);
   }
 
   document.addEventListener("DOMContentLoaded", init);
