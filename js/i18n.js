@@ -96,7 +96,8 @@ window.I18N = (function () {
       emailVerify: "✉️ Подтвердите смену по письму на новом адресе", photoUpdated: "✔ Фото обновлено",
       emailW: "Email", scoreW: "Очки", gamesW: "Игр", playerW: "Игрок",
       // рейтинг
-      leadersTitle: "🏆 Рейтинг клуба", loadingLb: "⏳ Загружаем рейтинг…",
+      leadersTitle: "Рейтинг клуба", leadersSub: "Зал славы географических экспедиций",
+      loadingLb: "⏳ Загружаем рейтинг…",
       lbEmpty: "Пока никто не сыграл — будь первой, Лейла!", lbUnavail: "Рейтинг недоступен",
       // подсказки по режимам/прочее
       noQuestions: "Нет вопросов для этого режима",
@@ -190,7 +191,8 @@ window.I18N = (function () {
       nickChanged: "✔ Name changed", passChanged: "✔ Password changed",
       emailVerify: "✉️ Confirm the change via the email sent to your new address", photoUpdated: "✔ Photo updated",
       emailW: "Email", scoreW: "Points", gamesW: "Games", playerW: "Player",
-      leadersTitle: "🏆 Club Leaderboard", loadingLb: "⏳ Loading leaderboard…",
+      leadersTitle: "Club Leaderboard", leadersSub: "Hall of fame of geographical expeditions",
+      loadingLb: "⏳ Loading leaderboard…",
       lbEmpty: "No one has played yet — be the first, Leyla!", lbUnavail: "Leaderboard unavailable",
       noQuestions: "No questions for this mode",
       wines5: "🍷 Five legendary wines of the region",

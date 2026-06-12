@@ -1461,10 +1461,42 @@
     showScreen("screen-profile");
   }
 
+  // стильная «дженерик»-аватарка: цвет из имени, первая буква в золочёном круге
+  var GEN_AV = [
+    ["#e8cd80", "#8a6d14"], ["#ff9cc4", "#a23c68"], ["#86c9ea", "#2a5d80"],
+    ["#a4dca9", "#2f6b3a"], ["#e0aa74", "#8a4f1d"], ["#cfa9e6", "#6b3f8a"],
+    ["#9adbd2", "#1f6157"], ["#f0a8a0", "#94372c"]
+  ];
+  function genAvatar(nick, cls) {
+    var n = (nick || "?").trim() || "?";
+    var s = 0;
+    for (var i = 0; i < n.length; i++) s = (s * 31 + n.charCodeAt(i)) % 9973;
+    var p = GEN_AV[s % GEN_AV.length];
+    return '<span class="gen-av ' + (cls || "") + '" style="background:linear-gradient(155deg,' +
+      p[0] + "," + p[1] + ')">' + esc(n.charAt(0).toUpperCase()) + "</span>";
+  }
+  function avatarOf(r, cls) {
+    return r.photo ? '<img class="' + (cls || "av") + '" src="' + r.photo + '" alt="">' : genAvatar(r.nick, cls);
+  }
+
+  function podiumCard(r, place, me) {
+    var medals = { 1: "🥇", 2: "🥈", 3: "🥉" };
+    return '<div class="pod pod-' + place + (r.uid === me ? " me" : "") + '">' +
+      (place === 1 ? '<div class="pod-crown">👑</div>' : "") +
+      '<div class="pod-ava">' + avatarOf(r, "pod-img") + '<span class="pod-medal">' + medals[place] + "</span></div>" +
+      '<div class="pod-nick">' + esc(r.nick || "—") + "</div>" +
+      '<div class="pod-score">' + (r.score || 0).toLocaleString("ru-RU") + "</div>" +
+      '<div class="pod-games">' + T("gamesW") + ": " + r.games + "</div>" +
+      '<div class="pod-base">' + place + "</div>" +
+    "</div>";
+  }
+
   function openLeaders() {
     showScreen("screen-leaders");
     $("#leaders-status").textContent = T("loadingLb");
     $("#leaders-table").innerHTML = "";
+    $("#lb-podium").innerHTML = "";
+    $("#lb-table-wrap").style.display = "none";
     renderH2H2($("#leaders-h2h"));
     if (!window.Account || !firebase) { $("#leaders-status").textContent = T("lbUnavail"); return; }
     Account.leaderboard().then(function (rows) {
@@ -1474,13 +1506,29 @@
       }
       $("#leaders-status").textContent = "";
       var me = Account.uid();
-      $("#leaders-table").innerHTML = "<tr><th>#</th><th>" + T("playerW") + "</th><th>" + T("scoreW") + "</th><th>" + T("gamesW") + "</th></tr>" +
-        rows.map(function (r, i) {
-          var medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
-          var ava = r.photo ? '<img class="av" src="' + r.photo + '" alt="">' : "";
-          return '<tr class="' + (r.uid === me ? "me" : "") + '"><td>' + medal + '</td><td class="q">' +
-            ava + esc(r.nick || "—") + "</td><td>" + (r.score || 0).toLocaleString("ru-RU") + "</td><td>" + r.games + "</td></tr>";
-        }).join("");
+
+      // пьедестал: 2 — 1 — 3
+      var top = rows.slice(0, 3);
+      var order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
+      $("#lb-podium").innerHTML = order.map(function (idx) {
+        return podiumCard(top[idx], idx + 1, me);
+      }).join("");
+
+      // таблица — с 4-го места
+      var rest = rows.slice(3);
+      if (rest.length) {
+        $("#lb-table-wrap").style.display = "";
+        $("#leaders-table").innerHTML =
+          "<tr><th class='lb-rank'>#</th><th class='lb-player'>" + T("playerW") + "</th><th class='lb-score'>" +
+          T("scoreW") + "</th><th class='lb-games'>" + T("gamesW") + "</th></tr>" +
+          rest.map(function (r, i) {
+            return '<tr class="' + (r.uid === me ? "me" : "") + '">' +
+              '<td class="lb-rank">' + (i + 4) + "</td>" +
+              '<td class="lb-player">' + avatarOf(r, "av") + "<span>" + esc(r.nick || "—") + "</span></td>" +
+              '<td class="lb-score">' + (r.score || 0).toLocaleString("ru-RU") + "</td>" +
+              '<td class="lb-games">' + r.games + "</td></tr>";
+          }).join("");
+      }
     }).catch(function (e) {
       $("#leaders-status").textContent = "⚠️ " + Account.errText(e);
     });

@@ -172,10 +172,19 @@
 
 <!-- ===================== РЕЙТИНГ ===================== -->
 <div class="screen board" id="screen-leaders">
-  <div class="results-inner">
-    <h2 data-i18n="leadersTitle">🏆 Рейтинг клуба</h2>
+  <div class="leaders-inner">
+    <div class="lb-head">
+      <svg class="lb-laurel" viewBox="0 0 60 100" aria-hidden="true"><path d="M50 8 C28 22 18 40 20 62 C22 78 32 90 44 96" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><g fill="currentColor"><ellipse cx="42" cy="16" rx="11" ry="4.5" transform="rotate(-38 42 16)"/><ellipse cx="31" cy="28" rx="11" ry="4.5" transform="rotate(-52 31 28)"/><ellipse cx="24" cy="42" rx="11" ry="4.5" transform="rotate(-68 24 42)"/><ellipse cx="21" cy="57" rx="11" ry="4.5" transform="rotate(-85 21 57)"/><ellipse cx="24" cy="72" rx="11" ry="4.5" transform="rotate(-103 24 72)"/><ellipse cx="31" cy="85" rx="11" ry="4.5" transform="rotate(-120 31 85)"/></g></svg>
+      <div class="lb-title-box">
+        <div class="lb-crest">✦ 🏆 ✦</div>
+        <h2 data-i18n="leadersTitle">Рейтинг клуба</h2>
+        <div class="lb-sub" data-i18n="leadersSub">Зал славы географических экспедиций</div>
+      </div>
+      <svg class="lb-laurel lb-laurel-r" viewBox="0 0 60 100" aria-hidden="true"><path d="M50 8 C28 22 18 40 20 62 C22 78 32 90 44 96" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><g fill="currentColor"><ellipse cx="42" cy="16" rx="11" ry="4.5" transform="rotate(-38 42 16)"/><ellipse cx="31" cy="28" rx="11" ry="4.5" transform="rotate(-52 31 28)"/><ellipse cx="24" cy="42" rx="11" ry="4.5" transform="rotate(-68 24 42)"/><ellipse cx="21" cy="57" rx="11" ry="4.5" transform="rotate(-85 21 57)"/><ellipse cx="24" cy="72" rx="11" ry="4.5" transform="rotate(-103 24 72)"/><ellipse cx="31" cy="85" rx="11" ry="4.5" transform="rotate(-120 31 85)"/></g></svg>
+    </div>
     <div class="online-status" id="leaders-status"></div>
-    <div class="result-table-wrap">
+    <div id="lb-podium" class="lb-podium"></div>
+    <div class="lb-table-wrap" id="lb-table-wrap">
       <table id="leaders-table"></table>
     </div>
     <div id="leaders-h2h" class="result-h2h"></div>

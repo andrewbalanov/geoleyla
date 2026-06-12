@@ -234,7 +234,130 @@ button:disabled { opacity: 0.55; cursor: default; }
 }
 .account-btn.in span { color: var(--gold-soft); font-size: 12.5px; font-weight: 700; }
 .account-btn:hover { border-color: var(--gold); }
+/* ===================== РЕЙТИНГ КЛУБА ===================== */
+.leaders-inner {
+  width: min(720px, 100%); margin: 0 auto;
+  padding: max(22px, env(safe-area-inset-top)) 18px 26px;
+  display: flex; flex-direction: column; gap: 14px; align-items: stretch;
+}
+.lb-head { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.lb-laurel { width: 44px; height: 74px; color: var(--gold-dim); flex: none; }
+.lb-laurel-r { transform: scaleX(-1); }
+.lb-title-box { text-align: center; }
+.lb-crest { font-size: 17px; letter-spacing: 8px; margin-bottom: 2px; }
+.lb-title-box h2 {
+  margin: 0; font-family: var(--serif); font-weight: 900;
+  font-size: clamp(26px, 5vw, 36px); color: var(--cream);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+.lb-sub {
+  font-family: var(--serif); font-style: italic; font-size: 13.5px;
+  color: var(--gold-soft); margin-top: 3px; letter-spacing: 0.4px;
+}
+
+/* --- пьедестал топ-3 --- */
+.lb-podium {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 12px; padding: 18px 4px 4px;
+}
+.pod {
+  flex: 1; max-width: 200px; position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: linear-gradient(180deg, rgba(16, 38, 31, 0.9), rgba(11, 28, 23, 0.92));
+  border: 1px solid var(--gold-dim); border-radius: 16px;
+  padding: 16px 10px 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+}
+.pod-1 {
+  border-color: rgba(232, 205, 128, 0.75); padding-top: 22px; padding-bottom: 20px;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(232, 205, 128, 0.14) 0%, rgba(232, 205, 128, 0) 60%),
+    linear-gradient(180deg, rgba(20, 44, 36, 0.95), rgba(11, 28, 23, 0.95));
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 0 28px rgba(201, 162, 39, 0.18);
+}
+.pod-2 { border-color: rgba(200, 205, 212, 0.45); }
+.pod-3 { border-color: rgba(205, 152, 95, 0.5); }
+.pod.me .pod-nick { color: var(--pink-soft); }
+.pod-crown {
+  position: absolute; top: -17px; left: 50%; transform: translateX(-50%);
+  font-size: 26px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+.pod-ava { position: relative; margin-bottom: 4px; }
+.pod-ava .pod-img, .pod-ava .gen-av.pod-img {
+  width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block;
+  border: 2.5px solid var(--gold-dim);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  font-size: 30px;
+}
+.pod-1 .pod-ava .pod-img { width: 80px; height: 80px; border-color: var(--gold); font-size: 38px; }
+.pod-medal {
+  position: absolute; right: -8px; bottom: -6px; font-size: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+.pod-nick { font-weight: 900; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-1 .pod-nick { font-size: 16.5px; }
+.pod-score { font-family: var(--serif); font-weight: 900; font-size: 22px; color: var(--gold-soft); }
+.pod-1 .pod-score { font-size: 27px; }
+.pod-games { font-size: 11.5px; color: var(--cream-dim); font-weight: 700; }
+.pod-base {
+  margin-top: 6px; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-weight: 900; font-size: 16px; color: #241c06;
+  background: linear-gradient(180deg, #e3c87a, #c9a227 65%, #a9851d);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.pod-2 .pod-base { background: linear-gradient(180deg, #dfe3e8, #aab2bc 65%, #8b94a1); }
+.pod-3 .pod-base { background: linear-gradient(180deg, #e0aa74, #b97d42 65%, #96622f); }
+
+/* --- таблица с 4-го места --- */
+.lb-table-wrap {
+  position: relative; max-height: 46vh; overflow-y: auto;
+  background: rgba(0, 0, 0, 0.24); border-radius: 16px; border: 1px solid var(--gold-dim);
+  box-shadow: inset 0 1px 0 rgba(230, 205, 134, 0.08);
+}
+#leaders-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+#leaders-table th {
+  position: sticky; top: 0; z-index: 1; background: #1b3a31;
+  padding: 12px 14px; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--gold-soft); text-align: left; border-bottom: 1px solid var(--gold-dim);
+}
+#leaders-table td {
+  padding: 11px 14px; border-top: 1px solid rgba(243, 234, 214, 0.07);
+  font-weight: 700; text-align: left; vertical-align: middle;
+}
+#leaders-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.02); }
+#leaders-table .lb-rank { width: 52px; text-align: center; color: var(--cream-dim); font-family: var(--serif); font-weight: 900; }
+#leaders-table td.lb-player { display: flex; align-items: center; gap: 10px; }
+#leaders-table .lb-score { text-align: right; color: var(--gold-soft); font-weight: 900; font-size: 16px; }
+#leaders-table th.lb-score { text-align: right; }
+#leaders-table .lb-games { text-align: right; width: 70px; color: var(--cream-dim); }
+#leaders-table th.lb-games { text-align: right; }
+#leaders-table img.av, #leaders-table .gen-av { width: 34px; height: 34px; font-size: 16px; }
 #leaders-table tr.me td { color: var(--pink-soft); font-weight: 900; }
+#leaders-table tr.me .lb-score { color: var(--pink-soft); }
+
+/* --- генерируемая аватарка: буква в цветном круге --- */
+.gen-av {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; flex: none;
+  font-family: var(--serif); font-weight: 900; color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(230, 205, 134, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35);
+  width: 24px; height: 24px; font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .lb-podium { gap: 7px; }
+  .pod { padding: 12px 6px 10px; }
+  .pod-ava .pod-img, .pod-ava .gen-av.pod-img { width: 52px; height: 52px; font-size: 24px; }
+  .pod-1 .pod-ava .pod-img { width: 66px; height: 66px; font-size: 32px; }
+  .pod-score { font-size: 18px; }
+  .pod-1 .pod-score { font-size: 22px; }
+  .lb-laurel { width: 32px; height: 56px; }
+  #leaders-table { font-size: 13.5px; }
+  #leaders-table th, #leaders-table td { padding: 9px 8px; }
+}
 .setup-row .btn-big { padding: 11px 14px; font-size: 15px; }
 
 /* аватары игроков */
