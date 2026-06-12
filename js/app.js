@@ -1715,6 +1715,20 @@
       }
     });
 
+    // запрет масштабирования страницы пальцами (iOS Safari игнорирует meta
+    // viewport) — щипок работает только на игровой карте, у неё свой зум
+    function pinchOnMap(e) {
+      return e.target && e.target.closest && e.target.closest("#map-wrap");
+    }
+    ["gesturestart", "gesturechange", "gestureend"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (!pinchOnMap(e)) e.preventDefault();
+      }, { passive: false });
+    });
+    document.addEventListener("touchmove", function (e) {
+      if (e.scale !== undefined && e.scale !== 1 && !pinchOnMap(e)) e.preventDefault();
+    }, { passive: false });
+
     // аккаунты и рейтинг
     var accountOn = false;
     if (window.Account && Account.init()) {

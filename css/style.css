@@ -52,6 +52,9 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* manipulation: скролл и клики работают, двойной тап не зумит страницу;
+   карте MapLibre не мешает — у её canvas свои touch-правила */
+body, body * { touch-action: manipulation; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -912,8 +915,16 @@ img.av {
 
 /* ---------- Мобильная раскладка ---------- */
 @media (max-width: 740px) {
-  .menu-scroll { padding: max(18px, env(safe-area-inset-top)) 14px 100px; }
+  .menu-scroll { padding: max(18px, env(safe-area-inset-top)) 14px 112px; }
   .menu-frame { inset: 6px; }
+  /* нижняя панель во всю ширину с фоном — карточки режимов не просвечивают */
+  .menu-footer {
+    left: 0; right: 0; bottom: 0; justify-content: center;
+    padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(10, 26, 21, 0) 0%, rgba(10, 26, 21, 0.9) 32%, rgba(7, 20, 16, 0.97) 100%);
+    -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+    border-top: 1px solid rgba(201, 162, 39, 0.28);
+  }
   .hero { flex-direction: column; text-align: center; gap: 14px; padding-top: 4px; }
   .hero-text { align-items: center; }
   .oxford-badge { margin-left: auto; margin-right: auto; }
