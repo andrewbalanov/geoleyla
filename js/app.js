@@ -375,14 +375,20 @@
       slot.innerHTML = '<img src="' + src + '" alt="Лейла">';
       slot.classList.add("has-photo");
     }
-    var probe = new Image();
-    probe.onload = function () { showSrc("assets/leyla.jpg"); };
-    probe.onerror = function () {
-      var saved = null;
-      try { saved = localStorage.getItem("gm_leyla_photo"); } catch (e) {}
-      if (saved) showSrc(saved);
-    };
-    probe.src = "assets/leyla.jpg";
+    // пробуем jpg → png → сохранённое в браузере фото
+    function probeChain(srcs, i) {
+      if (i >= srcs.length) {
+        var saved = null;
+        try { saved = localStorage.getItem("gm_leyla_photo"); } catch (e) {}
+        if (saved) showSrc(saved);
+        return;
+      }
+      var probe = new Image();
+      probe.onload = function () { showSrc(srcs[i]); };
+      probe.onerror = function () { probeChain(srcs, i + 1); };
+      probe.src = srcs[i];
+    }
+    probeChain(["assets/leyla.jpg", "assets/leyla.png"], 0);
 
     slot.onclick = function () { $("#leyla-file").click(); };
     $("#leyla-file").onchange = function () {
