@@ -3,7 +3,7 @@
 (function () {
 
   // ---------- Константы ----------
-  var PLAYER_COLORS = ["#ff5fa2", "#29c5e6"];
+  var PLAYER_COLORS = ["#ff5fa2", "#29c5e6", "#e8cd80", "#7ee08b"];
   // pos: [left%, top%] таблички в меню, rot — наклон, col — цвет
   var MODES = {
     capitals:  { icon: "🏛️", name: "Столицы мира",    desc: "Найди столицу на карте",            diff: true,  map: "world",  pos: [8, 12],  rot: -2, col: "y" },
@@ -57,8 +57,18 @@
   if (!settings.cards) settings.cards = "on";
   var G = null; // текущий матч
 
-  // ---------- Сеть (онлайн-дуэль через PeerJS) ----------
-  var NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", remotePhoto: null, code: "" };
+  // ---------- Сеть (онлайн до 4 игроков, звезда через хоста) ----------
+  var NET = {
+    active: false, isHost: false, peer: null,
+    conn: null,      // у гостя: соединение с хостом
+    conns: {},       // у хоста: pid -> DataConnection
+    nextPid: 1,
+    players: [],     // ростер комнаты: [{pid, name, photo, ready}]
+    myPid: 0,        // хост всегда 0
+    pending: null,   // выбранный хостом режим: {mode, nQ, timer, diff, region}
+    code: ""
+  };
+  var MAX_PLAYERS = 4;
   var CODE_AB = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   function makeCode() {
     var s = "";
@@ -73,10 +83,22 @@
   function netSend(obj) {
     if (NET.conn && NET.conn.open) { try { NET.conn.send(obj); } catch (e) {} }
   }
+  function netSendTo(c, obj) {
+    if (c && c.open) { try { c.send(obj); } catch (e) {} }
+  }
+  // хост: всем гостям (кроме exceptPid, если задан)
+  function broadcast(obj, exceptPid) {
+    for (var pid in NET.conns) {
+      if (exceptPid != null && Number(pid) === exceptPid) continue;
+      netSendTo(NET.conns[pid], obj);
+    }
+  }
   function netCleanup() {
-    var c = NET.conn, p = NET.peer;
-    NET = { active: false, isHost: false, peer: null, conn: null, remoteName: "", remotePhoto: null, code: "" };
+    var c = NET.conn, cs = NET.conns, p = NET.peer;
+    NET = { active: false, isHost: false, peer: null, conn: null, conns: {},
+      nextPid: 1, players: [], myPid: 0, pending: null, code: "" };
     try { if (c) c.close(); } catch (e) {}
+    for (var k in cs) { try { cs[k].close(); } catch (e) {} }
     try { if (p) p.destroy(); } catch (e) {}
     $("#online-banner").style.display = "none";
   }
@@ -84,31 +106,45 @@
   function hostRoom() {
     netCleanup();
     NET.isHost = true;
+    NET.active = true;
+    NET.myPid = 0;
     NET.code = makeCode();
-    $("#online-host-sec").style.display = "";
+    NET.players = [{ pid: 0, name: myName(), photo: myPhotoSmall(), ready: false }];
+    $("#online-host-sec").style.display = "none";
     $("#online-join-sec").style.display = "none";
-    $("#online-code").textContent = "· · · ·";
-    $("#online-host-status").textContent = T("creating");
+    $("#lobby-sec").style.display = "";
+    $("#lobby-code").textContent = "· · · ·";
+    $("#lobby-status").textContent = T("creating");
+    renderLobby();
     var peer = NET.peer = new Peer("gmleyla-" + NET.code, { debug: 0 });
     peer.on("open", function () {
-      $("#online-code").textContent = NET.code.split("").join(" ");
+      $("#lobby-code").textContent = NET.code.split("").join(" ");
       var canLink = /^https?:$/.test(location.protocol);
       $("#btn-copy-invite").style.display = canLink ? "" : "none";
       $("#share-row").style.display = canLink ? "" : "none";
-      $("#online-host-status").textContent = canLink ? T("tellCodeOrLink") : T("tellCode");
+      renderLobby();
     });
     peer.on("connection", function (c) {
-      if (NET.conn && NET.conn.open) { try { c.close(); } catch (e) {} return; }
-      NET.conn = c;
+      c.on("open", function () {
+        if (NET.peer !== peer) return;
+        if (NET.players.length >= MAX_PLAYERS) { netSendTo(c, { t: "full" }); setTimeout(function () { try { c.close(); } catch (e) {} }, 400); return; }
+        if (G && G.online) { netSendTo(c, { t: "busy" }); setTimeout(function () { try { c.close(); } catch (e) {} }, 400); return; }
+        var pid = NET.nextPid++;
+        c.__pid = pid;
+        NET.conns[pid] = c;
+      });
       bindConn(c);
     });
-    bindPeerWatch(peer, "#online-host-status");
+    bindPeerWatch(peer, "#lobby-status");
     peer.on("error", function (err) {
       var t = err && err.type;
       if (t === "unavailable-id") { hostRoom(); return; }
       if (t === "network") return; // связь с брокером — её чинит bindPeerWatch
-      $("#online-host-status").textContent = T("netErr", t || err);
+      $("#lobby-status").textContent = T("netErr", t || err);
     });
+  }
+  function myPhotoSmall() {
+    return (window.Account && Account.isIn() && Account.photo()) || null;
   }
 
   function joinRoom() {
@@ -171,30 +207,65 @@
 
   function bindConn(c) {
     c.on("open", function () {
-      NET.active = true;
-      netSend({ t: "hello", name: myName(),
-        photo: (window.Account && Account.isIn() && Account.photo()) || null });
-      if (!NET.isHost) $("#online-join-status").textContent = T("joinedWait");
+      if (!NET.isHost) {
+        NET.active = true;
+        netSend({ t: "hello", name: myName(), photo: myPhotoSmall() });
+        $("#online-join-status").textContent = T("joinedWait");
+      }
     });
-    c.on("data", onNetMsg);
+    c.on("data", function (msg) { onNetMsg(msg, c); });
     c.on("close", function () { onConnClosed(c); });
     c.on("error", function () { onConnClosed(c); });
   }
 
-  // обрыв соединения с соперником: до матча комната хоста продолжает ждать,
-  // вместо того чтобы умирать (раньше любой сбой гостя убивал комнату)
+  function pidIdx(pid) {
+    for (var i = 0; i < NET.players.length; i++) if (NET.players[i].pid === pid) return i;
+    return -1;
+  }
+  function gIdxOf(pid) {
+    if (!G) return -1;
+    for (var i = 0; i < G.players.length; i++) if (G.players[i].pid === pid) return i;
+    return -1;
+  }
+
+  // обрыв соединения: у хоста уходит один гость (комната живёт),
+  // у гостя пропал хост — значит вся комната закрылась
   function onConnClosed(c) {
-    if (NET.conn !== c) return; // устаревшее соединение
-    var inGame = G && G.online && !$("#screen-menu").classList.contains("active");
-    if (NET.isHost && !inGame) {
-      NET.conn = null; NET.active = false; NET.remoteName = ""; NET.remotePhoto = null;
-      $("#online-banner").style.display = "none";
-      renderMenu();
-      if ($("#screen-online").classList.contains("active"))
-        $("#online-host-status").textContent = T("guestLeftWait");
+    if (NET.isHost) {
+      var pid = c.__pid;
+      if (pid == null || NET.conns[pid] !== c) return; // устаревшее соединение
+      delete NET.conns[pid];
+      hostDropPlayer(pid, false);
       return;
     }
+    if (NET.conn !== c) return;
     onNetDrop(T("netLost"));
+  }
+
+  // хост: игрок ушёл/кикнут — из лобби убрать, в игре пометить выбывшим
+  function hostDropPlayer(pid, kicked) {
+    var i = pidIdx(pid);
+    if (i < 0) return;
+    var name = NET.players[i].name;
+    NET.players.splice(i, 1);
+    var inGame = G && G.online;
+    if (inGame) {
+      var gi = gIdxOf(pid);
+      if (gi >= 0) G.players[gi].left = true;
+      broadcast({ t: "playerLeft", pid: pid, kicked: !!kicked });
+      renderScoreChips();
+      updateOppStatus();
+      // если играть больше не с кем — завершаем матч в лобби
+      if (G.players.filter(function (p) { return !p.left; }).length < 2) {
+        broadcast({ t: "tolobby" });
+        toLobbyAll(T("allLeft"));
+        return;
+      }
+      if (G.phase === "wait" || G.phase === "answer") tryReveal();
+    }
+    broadcastLobby();
+    if (!inGame && $("#screen-online").classList.contains("active"))
+      $("#lobby-status").textContent = T("guestLeft", name);
   }
 
   function onNetDrop(text) {
@@ -202,43 +273,224 @@
     var inGame = G && G.online && !$("#screen-menu").classList.contains("active");
     netCleanup();
     stopTimer();
+    G = null;
     if (inGame || !$("#screen-online").classList.contains("active")) {
       $("#net-drop-text").textContent = text || T("netLost");
       $("#overlay-net").classList.add("show");
     } else {
-      $("#online-join-status").textContent = text || "Соединение потеряно";
-      $("#online-host-status").textContent = text || "Соединение потеряно";
+      $("#lobby-sec").style.display = "none";
+      $("#online-host-sec").style.display = "";
+      $("#online-join-sec").style.display = "none";
+      $("#online-host-status").textContent = text || T("netLost");
+    }
+    renderMenu();
+  }
+
+  // ---------- Лобби ----------
+  function lobbySnapshot() {
+    return {
+      players: NET.players.map(function (p) { return { pid: p.pid, name: p.name, photo: p.photo, ready: p.ready }; }),
+      pending: NET.pending ? pendingLabel(NET.pending) : null
+    };
+  }
+  function pendingLabel(p) {
+    var m = MODES[p.mode];
+    return (m ? m.icon + " " + I18N.modeName(p.mode, m.name) : p.mode) +
+      " · " + (p.nQ === "all" ? T("allQ") : p.nQ + " " + T("questionsW")) +
+      (p.timer ? " · ⏱ " + p.timer + T("secShort") : "");
+  }
+  // хост: разослать состояние лобби и перерисовать своё
+  function broadcastLobby() {
+    broadcast({ t: "lobby", lobby: lobbySnapshot() });
+    renderLobby();
+    updateOnlineBanner();
+  }
+  function showLobby() {
+    openOnline();
+    $("#online-host-sec").style.display = "none";
+    $("#online-join-sec").style.display = "none";
+    $("#lobby-sec").style.display = "";
+    if (NET.isHost) {
+      $("#lobby-code").textContent = NET.code.split("").join(" ");
+      var canLink = /^https?:$/.test(location.protocol);
+      $("#btn-copy-invite").style.display = canLink ? "" : "none";
+      $("#share-row").style.display = canLink ? "" : "none";
+    } else {
+      $("#lobby-code").textContent = NET.code.split("").join(" ");
+      $("#btn-copy-invite").style.display = "none";
+      $("#share-row").style.display = "none";
+    }
+    renderLobby();
+  }
+  function renderLobby() {
+    if ($("#lobby-sec").style.display === "none") return;
+    var me = NET.myPid;
+    $("#lobby-players").innerHTML = NET.players.map(function (p) {
+      var ava = p.photo ? '<img class="lp-av" src="' + p.photo + '" alt="">' : genAvatar(p.name, "lp-av");
+      return '<div class="lobby-player' + (p.ready ? " rdy" : "") + (p.pid === me ? " me" : "") + '">' +
+        ava +
+        '<span class="lp-name">' + esc(p.name) + (p.pid === 0 ? ' <span class="lp-host">👑</span>' : "") + "</span>" +
+        '<span class="lp-state">' + (p.ready ? T("readyMark") : T("waitMark")) + "</span>" +
+        (NET.isHost && p.pid !== 0 ? '<button class="lp-kick" data-pid="' + p.pid + '" title="' + T("kickTitle") + '">✕</button>' : "") +
+      "</div>";
+    }).join("");
+    $$("#lobby-players .lp-kick").forEach(function (b) {
+      b.onclick = function () {
+        if (confirm(T("kickQ"))) kickPlayer(Number(b.getAttribute("data-pid")));
+      };
+    });
+    // выбранный режим
+    var pend = NET.isHost ? (NET.pending ? pendingLabel(NET.pending) : null) : NET.pendingView;
+    $("#lobby-pending").innerHTML = pend
+      ? T("lobbyMode") + " <b>" + pend + "</b>"
+      : T("lobbyNoMode");
+    // кнопки
+    $("#btn-lobby-mode").style.display = NET.isHost ? "" : "none";
+    var meP = NET.players[pidIdx(me)];
+    var rb = $("#btn-lobby-ready");
+    rb.textContent = meP && meP.ready ? T("notReadyBtn") : T("readyBtn");
+    rb.classList.toggle("btn-orange", !(meP && meP.ready));
+    // статус
+    var readyN = NET.players.filter(function (p) { return p.ready; }).length;
+    var st;
+    if (NET.players.length < 2) st = T("waitingPlayers");
+    else if (!pend) st = T("hostPicksMode");
+    else if (readyN < NET.players.length) st = T("waitingReady", readyN, NET.players.length);
+    else st = T("starting");
+    $("#lobby-status").textContent = st;
+  }
+  function setMyReady(v) {
+    if (NET.isHost) {
+      NET.players[0].ready = v;
+      broadcastLobby();
+      maybeStartGame();
+    } else {
+      var i = pidIdx(NET.myPid);
+      if (i >= 0) NET.players[i].ready = v; // локально до прихода ростера
+      renderLobby();
+      netSend({ t: "ready", v: v });
+    }
+  }
+  function kickPlayer(pid) {
+    var c = NET.conns[pid];
+    if (c) {
+      netSendTo(c, { t: "kick" });
+      setTimeout(function () { try { c.close(); } catch (e) {} }, 400);
+      delete NET.conns[pid];
+    }
+    hostDropPlayer(pid, true);
+  }
+  // хост: все готовы и режим выбран — поехали
+  function maybeStartGame() {
+    if (!NET.isHost || !NET.pending) return;
+    if (G && G.online) return;
+    if (NET.players.length < 2) return;
+    if (!NET.players.every(function (p) { return p.ready; })) return;
+    var pd = NET.pending;
+    var questions = buildQuestions(pd.mode, pd.nQ, pd.diff, pd.region);
+    if (!questions.length) { $("#lobby-status").textContent = T("noQuestions"); return; }
+    var roster = NET.players.map(function (p) { return { pid: p.pid, name: p.name, photo: p.photo }; });
+    NET.players.forEach(function (p) { p.ready = false; });
+    broadcast({ t: "start", mode: pd.mode, questions: questions, timer: pd.timer, players: roster });
+    startOnlineMatch(pd.mode, questions, pd.timer, roster);
+  }
+  // все возвращаются в комнату ожидания (после матча или когда играть некем)
+  function toLobbyAll(statusText) {
+    stopTimer();
+    G = null;
+    NET.players.forEach(function (p) { p.ready = false; });
+    showLobby();
+    if (statusText) $("#lobby-status").textContent = statusText;
+    if (NET.isHost) broadcastLobby();
+  }
+
+  function onNetMsg(msg, fromConn) {
+    if (!msg || !msg.t) return;
+    if (NET.isHost) hostMsg(msg, fromConn);
+    else guestMsg(msg);
+  }
+
+  // ---------- сообщения у хоста ----------
+  function hostMsg(msg, c) {
+    var pid = c && c.__pid;
+    if (msg.t === "hello") {
+      if (pid == null) return;
+      var nm = String(msg.name || "Игрок").slice(0, 14);
+      var ph = (typeof msg.photo === "string" && msg.photo.length < 60000) ? msg.photo : null;
+      if (pidIdx(pid) < 0) NET.players.push({ pid: pid, name: nm, photo: ph, ready: false });
+      netSendTo(c, { t: "welcome", pid: pid, code: NET.code });
+      broadcastLobby();
+      Sound.place();
+    } else if (msg.t === "ready") {
+      var i = pidIdx(pid);
+      if (i >= 0) NET.players[i].ready = !!msg.v;
+      broadcastLobby();
+      maybeStartGame();
+    } else if (msg.t === "answer") {
+      if (!G || !G.online) return;
+      var gi = gIdxOf(pid);
+      if (gi < 0) return;
+      G.players[gi].answers[msg.q] = msg.ans;
+      broadcast({ t: "answer", pid: pid, q: msg.q, ans: msg.ans }, pid);
+      updateOppStatus();
+      if (msg.q === G.qIndex) tryReveal();
+    } else if (msg.t === "bye") {
+      if (pid == null) return;
+      if (NET.conns[pid]) { try { NET.conns[pid].close(); } catch (e) {} delete NET.conns[pid]; }
+      hostDropPlayer(pid, false);
     }
   }
 
-  function onNetMsg(msg) {
-    if (!msg || !msg.t) return;
-    if (msg.t === "hello") {
-      NET.remoteName = String(msg.name || "Соперник").slice(0, 14);
-      NET.remotePhoto = (typeof msg.photo === "string" && msg.photo.length < 60000) ? msg.photo : null;
-      if (NET.isHost) {
-        $("#online-host-status").textContent = T("joined", NET.remoteName);
-      }
-      renderMenu();
-      showScreen("screen-menu");
+  // ---------- сообщения у гостя ----------
+  function guestMsg(msg) {
+    if (msg.t === "welcome") {
+      NET.myPid = msg.pid;
+      NET.code = msg.code || NET.code;
+      showLobby();
+    } else if (msg.t === "lobby") {
+      NET.players = msg.lobby.players || [];
+      NET.pendingView = msg.lobby.pending || null;
+      // сигнал «вернуться в комнату» после матча
+      if (G && G.online && $("#screen-results").classList.contains("active")) { G = null; showLobby(); }
+      else if (!G || !G.online) { if (!$("#screen-online").classList.contains("active")) updateOnlineBanner(); }
+      renderLobby();
+      updateOnlineBanner();
     } else if (msg.t === "start") {
-      // гость получает старт игры
-      startOnlineMatch(msg.mode, msg.questions, msg.timer, msg.hostName, false);
+      startOnlineMatch(msg.mode, msg.questions, msg.timer, msg.players);
     } else if (msg.t === "answer") {
       if (!G || !G.online) return;
-      G.players[1 - G.myIdx].answers[msg.q] = msg.ans;
+      var gi = gIdxOf(msg.pid);
+      if (gi < 0 || gi === G.myIdx) return;
+      G.players[gi].answers[msg.q] = msg.ans;
       updateOppStatus();
       if (msg.q === G.qIndex) tryReveal();
     } else if (msg.t === "next") {
-      if (!G || !G.online || NET.isHost) return;
+      if (!G || !G.online) return;
       nextQuestion();
+    } else if (msg.t === "playerLeft") {
+      var gi2 = gIdxOf(msg.pid);
+      if (gi2 >= 0 && G) { G.players[gi2].left = true; renderScoreChips(); updateOppStatus(); if (G.phase === "wait" || G.phase === "answer") tryReveal(); }
+      var i2 = pidIdx(msg.pid);
+      if (i2 >= 0) NET.players.splice(i2, 1);
+      renderLobby();
+    } else if (msg.t === "tolobby") {
+      toLobbyAll();
     } else if (msg.t === "abort") {
-      // хост или гость прервал матч — оба в меню, сессия живёт
-      if (G && G.online) quitToMenu(true);
-    } else if (msg.t === "bye") {
-      var byeInGame = G && G.online && !$("#screen-menu").classList.contains("active");
-      if (NET.isHost && !byeInGame) onConnClosed(NET.conn); // комната ждёт нового гостя
-      else onNetDrop(T("oppLeft"));
+      if (G && G.online) toLobbyAll();
+    } else if (msg.t === "kick" || msg.t === "closed") {
+      var txt = msg.t === "kick" ? T("kickedMsg") : T("roomClosed");
+      netCleanup();
+      stopTimer();
+      G = null;
+      renderMenu();
+      $("#net-drop-text").textContent = txt;
+      $("#overlay-net").classList.add("show");
+    } else if (msg.t === "full") {
+      netCleanup();
+      $("#online-join-status").textContent = T("roomFull");
+    } else if (msg.t === "busy") {
+      netCleanup();
+      $("#online-join-status").textContent = T("roomBusy");
     }
   }
 
@@ -489,10 +741,11 @@
   function updateOnlineBanner() {
     var b = $("#online-banner");
     if (!NET.active) { b.style.display = "none"; return; }
-    var who = esc(NET.remoteName || "…");
-    b.innerHTML = (NET.isHost ? T("bannerHost", who) : T("bannerGuest", who)) +
+    b.innerHTML = T("bannerRoom", esc(NET.code || "····"), NET.players.length) +
+      '<button id="btn-to-room">' + T("toRoom") + "</button>" +
       '<button id="btn-leave-net">' + T("leaveNet") + "</button>";
     b.style.display = "block";
+    $("#btn-to-room").onclick = showLobby;
     $("#btn-leave-net").onclick = leaveOnlineSession;
   }
 
@@ -556,7 +809,8 @@
     $("#row-p1").style.display = online ? "none" : "";
     $("#row-p2").style.display = online ? "none" : (settings.twoPlayers ? "" : "none");
     $("#setup-online-note").style.display = online ? "" : "none";
-    if (online) $("#setup-online-note").innerHTML = T("vsNote", PLAYER_COLORS[0], esc(myName()), PLAYER_COLORS[1], esc(NET.remoteName));
+    if (online) $("#setup-online-note").innerHTML = T("roomNote",
+      NET.players.map(function (p) { return esc(p.name); }).join(", "));
     showScreen("screen-setup");
   }
 
@@ -607,8 +861,12 @@
     if (!questions.length) { alert(T("noQuestions")); return; }
 
     if (NET.active && NET.isHost) {
-      netSend({ t: "start", mode: pendingMode, questions: questions, timer: settings.timer, hostName: myName() });
-      startOnlineMatch(pendingMode, questions, settings.timer, myName(), true);
+      // онлайн: режим назначен — все собираются в комнате ожидания
+      NET.pending = { mode: pendingMode, nQ: settings.nQ, timer: settings.timer,
+        diff: settings.diff, region: settings.region };
+      showLobby();
+      broadcastLobby();
+      maybeStartGame(); // вдруг все уже нажали «Готов»
       return;
     }
 
@@ -628,20 +886,21 @@
     restartMatch();
   }
 
-  function startOnlineMatch(mode, questions, timer, hostName, iAmHost) {
+  function startOnlineMatch(mode, questions, timer, roster) {
     pendingMode = mode;
-    var me = myName();
-    var myPhoto = (window.Account && Account.isIn()) ? Account.photo() : null;
+    var myIdx = 0;
+    var players = roster.map(function (r, i) {
+      if (r.pid === NET.myPid) myIdx = i;
+      return { pid: r.pid, name: String(r.name || "Игрок").slice(0, 14),
+        color: PLAYER_COLORS[i % PLAYER_COLORS.length], score: 0, answers: [],
+        photo: r.photo || null, left: false };
+    });
     G = {
-      mode: mode, online: true, myIdx: iAmHost ? 0 : 1,
-      players: [
-        { name: iAmHost ? me : String(hostName || "Хост").slice(0, 14), color: PLAYER_COLORS[0], score: 0, answers: [],
-          photo: iAmHost ? myPhoto : (NET.remotePhoto || null) },
-        { name: iAmHost ? NET.remoteName : me, color: PLAYER_COLORS[1], score: 0, answers: [],
-          photo: iAmHost ? (NET.remotePhoto || null) : myPhoto }
-      ],
+      mode: mode, online: true, myIdx: myIdx,
+      players: players,
       questions: questions, timerSec: timer || 0,
-      qIndex: 0, order: [0, 1], turn: 0, phase: "idle", guess: null
+      qIndex: 0, order: players.map(function (_, i) { return i; }),
+      turn: 0, phase: "idle", guess: null
     };
     restartMatch();
   }
@@ -769,9 +1028,15 @@
   function updateOppStatus() {
     var el = $("#opp-status");
     if (!el || !G || !G.online) return;
-    var opp = G.players[1 - G.myIdx];
-    var answered = !!opp.answers[G.qIndex];
-    el.textContent = answered ? T("oppDone", opp.name) : T("oppThinking", opp.name);
+    var alive = G.players.filter(function (p) { return !p.left; });
+    var done = alive.filter(function (p) { return p.answers[G.qIndex]; }).length;
+    if (alive.length <= 2) {
+      var opp = alive.filter(function (p, i) { return G.players.indexOf(p) !== G.myIdx; })[0];
+      if (!opp) { el.textContent = ""; return; }
+      el.textContent = opp.answers[G.qIndex] ? T("oppDone", opp.name) : T("oppThinking", opp.name);
+    } else {
+      el.textContent = T("answeredN", done, alive.length);
+    }
   }
 
   function renderTurnBar() {
@@ -796,11 +1061,19 @@
 
   function renderScoreChips() {
     var el = $("#score-chips");
+    var canKick = G.online && NET.isHost;
     el.innerHTML = G.players.map(function (p, i) {
-      return '<span class="score-chip" id="score-chip-' + i + '" style="--pc:' + p.color + '">' +
+      return '<span class="score-chip' + (p.left ? " left" : "") + '" id="score-chip-' + i + '" style="--pc:' + p.color + '">' +
         (p.photo ? '<img class="av" src="' + p.photo + '" alt="">' : "<i></i>") +
-        esc(p.name) + ' <b id="score-val-' + i + '">' + p.score + "</b></span>";
+        esc(p.name) + ' <b id="score-val-' + i + '">' + p.score + "</b>" +
+        (canKick && p.pid !== 0 && !p.left ? '<button class="chip-kick" data-pid="' + p.pid + '" title="' + T("kickTitle") + '">✕</button>' : "") +
+      "</span>";
     }).join("");
+    $$("#score-chips .chip-kick").forEach(function (b) {
+      b.onclick = function () {
+        if (confirm(T("kickQ"))) kickPlayer(Number(b.getAttribute("data-pid")));
+      };
+    });
   }
 
   // ---------- Таймер ----------
@@ -889,13 +1162,14 @@
     if (!byTimeout) Sound.confirm();
 
     if (G.online) {
-      netSend({ t: "answer", q: G.qIndex, ans: ans });
+      if (NET.isHost) broadcast({ t: "answer", pid: NET.myPid, q: G.qIndex, ans: ans });
+      else netSend({ t: "answer", q: G.qIndex, ans: ans });
       G.phase = "wait";
-      var opp = G.players[1 - G.myIdx];
       var hint = $("#map-hint");
-      hint.textContent = T("sentWait", opp.name);
+      hint.textContent = T("sentWaitAll");
       hint.style.display = "";
       hint.classList.add("show");
+      updateOppStatus();
       tryReveal();
       return;
     }
@@ -910,9 +1184,8 @@
 
   function tryReveal() {
     if (!G || !G.online || G.phase === "reveal") return;
-    var a0 = G.players[0].answers[G.qIndex];
-    var a1 = G.players[1].answers[G.qIndex];
-    if (a0 && a1) doReveal();
+    var all = G.players.every(function (p) { return p.left || p.answers[G.qIndex]; });
+    if (all) doReveal();
   }
 
   // ---------- Раскрытие ----------
@@ -1162,18 +1435,19 @@
   function showResults() {
     var ps = G.players;
     var headline, sub = "";
-    if (ps.length === 2) {
-      var w = ps[0].score === ps[1].score ? null : (ps[0].score > ps[1].score ? ps[0] : ps[1]);
-      saveH2H(w);
+    if (ps.length >= 2) {
+      var sorted = ps.slice().sort(function (a, b) { return b.score - a.score; });
+      var w = sorted[0].score === sorted[1].score ? null : sorted[0];
+      if (ps.length === 2) saveH2H(w);
       if (w) {
         if (isLeyla(w.name)) headline = T("leylaWin") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
         else headline = T("win") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
-        sub = ps[0].score.toLocaleString("ru-RU") + " : " + ps[1].score.toLocaleString("ru-RU");
+        sub = sorted.map(function (p) { return p.score.toLocaleString("ru-RU"); }).join(" : ");
         Sound.win();
         confetti(w.color);
       } else {
         headline = T("drawT");
-        sub = ps[0].score.toLocaleString("ru-RU") + " : " + ps[1].score.toLocaleString("ru-RU");
+        sub = sorted.map(function (p) { return p.score.toLocaleString("ru-RU"); }).join(" : ");
         Sound.meh();
       }
     } else {
@@ -1192,7 +1466,7 @@
       var cells = ps.map(function (p) {
         var a = p.answers[qi];
         var v = a ? a.pts : 0;
-        return '<td class="' + (ps.length === 2 && v === bestPts && v > 0 ? "best" : "") + '">' + v + "</td>";
+        return '<td class="' + (ps.length >= 2 && v === bestPts && v > 0 ? "best" : "") + '">' + v + "</td>";
       }).join("");
       var en = I18N.lang() === "en";
       var label = q.flag
@@ -1206,8 +1480,9 @@
     $("#result-table").innerHTML = head + rows;
 
     var rb = $("#btn-rematch");
-    if (G.online && !NET.isHost) { rb.disabled = true; rb.textContent = T("rematchHost"); }
-    else { rb.disabled = false; rb.textContent = T("rematch"); }
+    rb.disabled = false;
+    if (G.online) rb.textContent = NET.isHost ? T("newGameLobby") : T("backToRoom");
+    else rb.textContent = T("rematch");
 
     renderH2H2($("#result-h2h"));
     showScreen("screen-results");
@@ -1236,27 +1511,40 @@
   }
 
   function rematch() {
-    if (G.online && !NET.isHost) return;
-    G.questions = buildQuestions(G.mode, settings.nQ, settings.diff, settings.region);
-    if (G.online) {
-      // реванш = новый старт (гость может быть уже в меню сессии)
-      netSend({ t: "start", mode: G.mode, questions: G.questions, timer: G.timerSec, hostName: myName() });
+    if (G && G.online) {
+      // онлайн: все собираются в комнате ожидания на новую партию
+      if (NET.isHost) { broadcast({ t: "tolobby" }); toLobbyAll(); }
+      else { G = null; showLobby(); }
+      return;
     }
+    G.questions = buildQuestions(G.mode, settings.nQ, settings.diff, settings.region);
     restartMatch();
   }
 
-  // выход в меню: онлайн-сессия ЖИВЁТ, рвём только текущий матч
+  // выход из матча: хост завершает его для всех (все в лобби),
+  // гость покидает комнату целиком
   function quitToMenu(silent) {
     stopTimer();
-    if (!silent && G && G.online && NET.active) netSend({ t: "abort" });
+    if (G && G.online && NET.active) {
+      if (NET.isHost) {
+        if (!silent) broadcast({ t: "abort" });
+        toLobbyAll();
+        return;
+      }
+      if (!silent) netSend({ t: "bye" });
+      netCleanup();
+    }
     G = null;
     renderMenu();
     showScreen("screen-menu");
   }
 
-  // полный выход из онлайн-сессии (кнопка в баннере меню)
+  // полный выход из комнаты (кнопка в баннере меню)
   function leaveOnlineSession() {
-    if (NET.active) netSend({ t: "bye" });
+    if (NET.active) {
+      if (NET.isHost) broadcast({ t: "closed" });
+      else netSend({ t: "bye" });
+    }
     netCleanup();
     G = null;
     renderMenu();
@@ -1613,7 +1901,7 @@
     $("#handoff-go").onclick = beginTurn;
     $("#btn-confirm").onclick = function () { confirmAnswer(false); };
     $("#btn-next").onclick = function () {
-      if (G && G.online && NET.isHost) netSend({ t: "next" });
+      if (G && G.online && NET.isHost) broadcast({ t: "next" });
       nextQuestion();
     };
     $("#btn-zoom-in").onclick = function () { if (cur()) cur().zoomBy(1.7); };
@@ -1695,6 +1983,15 @@
     $("#inp-join-code").addEventListener("input", function () {
       this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
     });
+    // лобби: готовность и выбор режима
+    $("#btn-lobby-ready").onclick = function () {
+      var meP = NET.players[pidIdx(NET.myPid)];
+      setMyReady(!(meP && meP.ready));
+    };
+    $("#btn-lobby-mode").onclick = function () {
+      renderMenu();
+      showScreen("screen-menu");
+    };
 
     // клик по фото вопроса — увеличить/уменьшить
     document.addEventListener("click", function (e) {
@@ -1706,7 +2003,10 @@
       if (cur()) cur().invalidate();
     });
     window.addEventListener("beforeunload", function () {
-      if (NET.active) netSend({ t: "bye" });
+      if (NET.active) {
+        if (NET.isHost) broadcast({ t: "closed" });
+        else netSend({ t: "bye" });
+      }
     });
     // вкладка проснулась (телефон разблокировали) — вернуть связь с брокером
     document.addEventListener("visibilitychange", function () {
@@ -1833,7 +2133,7 @@
   window.__DEV = {
     getMap: function (name) { return name ? maps[name] : cur(); },
     peer: function () { return NET.peer; },
-    net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, remote: NET.remoteName }; },
+    net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, players: NET.players, myPid: NET.myPid, pending: NET.pending }; },
     state: function () {
       if (!G) return null;
       return { phase: G.phase, q: G.qIndex, turn: G.turn, mode: G.mode, stage: activeMapName,
