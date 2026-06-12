@@ -17,6 +17,10 @@ window.Account = (function () {
     "permission-denied": "База данных закрыта правилами — вставьте правила Firestore (вкладка Rules)",
     "nick-taken": "Это имя уже занято",
     "bad-nick": "Имя должно быть от 2 до 16 символов",
+    "auth/popup-blocked": "Браузер заблокировал окно входа — разрешите всплывающие окна",
+    "auth/popup-closed-by-user": "Окно входа было закрыто",
+    "auth/cancelled-popup-request": "Окно входа было закрыто",
+    "auth/unauthorized-domain": "Домен не добавлен в Authorized domains (Authentication → Settings)",
     "net-timeout": "База данных не отвечает. Проверьте, что в консоли Firebase создан Firestore (Firestore Database → Create database)"
   };
   function withTimeout(p, ms) {
@@ -82,6 +86,49 @@ window.Account = (function () {
   function login(email, pass) { return auth.signInWithEmailAndPassword(email, pass); }
   function logout() { return auth.signOut(); }
   function resetPassword(email) { return auth.sendPasswordResetEmail(email); }
+
+  // ---- Вход через Google: при первом входе автоматически выдаём уникальный ник ----
+  function loginGoogle() {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    return auth.signInWithPopup(provider).then(function (cred) {
+      return ensureProfile(cred.user);
+    });
+  }
+  function ensureProfile(u) {
+    return withTimeout(db.collection("users").doc(u.uid).get(), 9000).then(function (s) {
+      if (s.exists) return;
+      var base = ((u.displayName || (u.email || "Игрок").split("@")[0]) + "").trim().slice(0, 14) || "Игрок";
+      return claimNick(base, 0, u);
+    }).then(function () { loadProfile(); }).catch(function () { loadProfile(); });
+  }
+  function claimNick(base, n, u) {
+    var nick = n ? (base.slice(0, 14 - String(n).length) + n) : base;
+    var key = nickKey(nick);
+    return db.runTransaction(function (tx) {
+      return tx.get(db.collection("nicks").doc(key)).then(function (s) {
+        if (s.exists) throw { code: "nick-taken" };
+        tx.set(db.collection("nicks").doc(key), { uid: u.uid });
+        tx.set(db.collection("users").doc(u.uid), {
+          nick: nick, nickLower: key, email: u.email || "", lang: "ru",
+          totalScore: 0, games: 0,
+          created: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+    }).then(function () {
+      return u.updateProfile({ displayName: nick });
+    }).catch(function (e) {
+      if (e && e.code === "nick-taken" && n < 99) return claimNick(base, n + 1, u);
+    });
+  }
+  function isGoogle() {
+    if (!user) return false;
+    var hasPass = false, hasGoogle = false;
+    (user.providerData || []).forEach(function (p) {
+      if (p.providerId === "password") hasPass = true;
+      if (p.providerId === "google.com") hasGoogle = true;
+    });
+    return hasGoogle && !hasPass;
+  }
 
   function reauth(pass) {
     var cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
@@ -159,6 +206,7 @@ window.Account = (function () {
     nick: function () { return (profile && profile.nick) || (user && user.displayName) || null; },
     lang: function () { return (profile && profile.lang) || "ru"; },
     register: register, login: login, logout: logout,
+    loginGoogle: loginGoogle, isGoogle: isGoogle,
     resetPassword: resetPassword, changePassword: changePassword,
     changeEmail: changeEmail, changeNick: changeNick, setLang: setLang,
     addScore: addScore, leaderboard: leaderboard,

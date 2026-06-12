@@ -173,6 +173,19 @@ button:disabled { opacity: 0.55; cursor: default; }
 .account-btn:hover { border-color: var(--gold); }
 #leaders-table tr.me td { color: var(--pink-soft); font-weight: 900; }
 .setup-row .btn-big { padding: 11px 14px; font-size: 15px; }
+.auth-divider {
+  display: flex; align-items: center; gap: 12px; color: var(--cream-dim);
+  font-size: 12.5px; font-weight: 700;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--gold-dim);
+}
+.btn-big.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #fff; color: #3c4043; border: 1px solid #d0d0d0;
+  text-shadow: none;
+}
+.btn-big.btn-google svg { flex: 0 0 auto; }
 
 .h2h {
   display: none; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
@@ -253,7 +266,7 @@ button:disabled { opacity: 0.55; cursor: default; }
 .btn-music.off, .btn-music.off:hover { opacity: 0.4; }
 
 /* ===================== НАСТРОЙКА / ОНЛАЙН ===================== */
-#screen-setup, #screen-online { overflow-y: auto; align-items: center; }
+#screen-setup, #screen-online, #screen-auth, #screen-profile, #screen-leaders { overflow-y: auto; align-items: center; }
 .setup-inner {
   width: min(480px, 100%);
   padding: max(22px, env(safe-area-inset-top)) 20px 24px;

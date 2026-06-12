@@ -1254,6 +1254,11 @@
     $("#prof-status").textContent = "";
     $("#prof-old-pass").value = $("#prof-new-pass").value = "";
     $("#prof-email-pass").value = $("#prof-new-email").value = "";
+    // у Google-аккаунтов пароль/email управляются Google
+    var g = Account.isGoogle();
+    $("#prof-google-note").style.display = g ? "" : "none";
+    $("#row-prof-pass").style.display = g ? "none" : "";
+    $("#row-prof-email").style.display = g ? "none" : "";
     showScreen("screen-profile");
   }
 
@@ -1454,6 +1459,17 @@
       $("#auth-status").textContent = "";
     });
     $("#btn-auth-go").onclick = authGo;
+    $("#btn-auth-google").onclick = function () {
+      var st = $("#auth-status");
+      st.textContent = "⏳ Открываем окно Google…";
+      Account.loginGoogle().then(function () {
+        st.textContent = "";
+        renderMenu();
+        showScreen("screen-menu");
+      }).catch(function (e) {
+        st.textContent = "⚠️ " + Account.errText(e);
+      });
+    };
     $("#auth-pass").addEventListener("keydown", function (e) { if (e.key === "Enter") authGo(); });
     $("#btn-auth-forgot").onclick = function () {
       var email = ($("#auth-email").value || "").trim();
