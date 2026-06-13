@@ -102,14 +102,36 @@
     // слои игры зашиваются прямо в стиль — не нужно ждать события load
     var style = JSON.parse(JSON.stringify(config.style || window.MAP_STYLE));
     var regionsFC = { type: "FeatureCollection", features: this.features.map(function (f, i) {
-      return { type: "Feature", id: i, properties: {}, geometry: cutAntimeridian(f.geometry) };
+      var pr = config.wineRegions && f.properties ? { tint: f.properties.tint } : {};
+      return { type: "Feature", id: i, properties: pr, geometry: cutAntimeridian(f.geometry) };
     }) };
     style.sources.regions = { type: "geojson", data: regionsFC };
     style.sources.arcs = { type: "geojson", data: { type: "FeatureCollection", features: [] } };
     var ST = function (name) { return ["boolean", ["feature-state", name], false]; };
     // green — верный ответ (угадал), yellow — верный ответ, но игрок промахнулся,
     // wrong — куда указал ошибочно, sel — выбор до подтверждения
-    if (config.regions) {
+    if (config.wineRegions) {
+      // винные регионы Франции: каждый окрашен своим приглушённым цветом (явно отмечен),
+      // на ответе — зелёный/жёлтый/красный, как у стран
+      style.layers.push({
+        id: "regions-fill", type: "fill", source: "regions",
+        paint: {
+          "fill-color": ["case",
+            ST("green"), "#3cb84d",
+            ST("yellow"), "#f0c93a",
+            ST("wrong"), "#e15b5b",
+            ST("sel"), "#5b9bd5",
+            ["coalesce", ["get", "tint"], "#9c6b4a"]],
+          "fill-opacity": ["case",
+            ST("green"), 0.8, ST("yellow"), 0.78, ST("wrong"), 0.7, ST("sel"), 0.7,
+            0.5]
+        }
+      });
+      style.layers.push({
+        id: "regions-line", type: "line", source: "regions",
+        paint: { "line-color": "rgba(40,30,20,0.5)", "line-width": 0.8 }
+      });
+    } else if (config.regions) {
       style.layers.push({
         id: "regions-fill", type: "fill", source: "regions",
         paint: {
@@ -434,6 +456,19 @@
       name: "france",
       features: geojson.features,
       regions: true,
+      bounds: [[41.2, -5.5], [51.3, 9.8]],
+      maxBounds: [[36, -13], [56, 17]],
+      minZoom: 4.2,
+      maxZoom: 15,
+      onPick: onPick
+    });
+  };
+
+  GeoMap.createWineFrance = function (container, geojson, onPick) {
+    return new GeoMap(container, {
+      name: "winefr",
+      features: geojson.features,
+      wineRegions: true,
       bounds: [[41.2, -5.5], [51.3, 9.8]],
       maxBounds: [[36, -13], [56, 17]],
       minZoom: 4.2,

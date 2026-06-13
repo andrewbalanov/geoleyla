@@ -935,7 +935,8 @@ img.av {
 
 .overlay-card.infocard {
   width: min(520px, 100%);
-  max-height: calc(100% - 24px); overflow-y: auto;
+  max-height: calc(100% - 24px); overflow: hidden;
+  display: flex; flex-direction: column;
   background:
     radial-gradient(140% 100% at 50% 0%, rgba(124, 97, 22, 0.12) 0%, rgba(124, 97, 22, 0) 50%),
     linear-gradient(180deg, #f7efdc, #efe2c4);
@@ -984,17 +985,29 @@ img.av {
   font-family: var(--serif); font-weight: 700; font-size: 17px; color: #5e1825;
   margin: 6px 0 2px; text-align: center;
 }
-.wine-row {
-  display: flex; flex-direction: column; gap: 1px;
-  padding: 7px 10px; border-left: 3px solid #7d2433;
-  background: rgba(125, 36, 51, 0.06); border-radius: 0 8px 8px 0;
-  margin-bottom: 6px;
+/* стили вин региона (инфографика) */
+.wine-styles { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 2px 0 4px; }
+.wstyle {
+  font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
+  background: rgba(125, 36, 51, 0.08); color: #5e1825; border: 1px solid rgba(125, 36, 51, 0.25);
 }
-.wine-row b { font-size: 14px; color: #4a1521; }
-.wine-row span { font-size: 12.5px; color: #6d5b35; }
-.infocard .btn-big { margin-top: 4px; }
-/* кнопка «Продолжить» остаётся на виду при прокрутке длинного текста */
-.infocard .btn-close { position: sticky; bottom: -2px; z-index: 2; }
+/* карточка вина с бутылкой */
+.wine-card {
+  display: flex; gap: 12px; align-items: center;
+  padding: 9px 12px 9px 8px; border-left: 4px solid #7d2433;
+  background: rgba(125, 36, 51, 0.05); border-radius: 0 12px 12px 0; margin-bottom: 9px;
+}
+.wine-card.wt-white { border-left-color: #b89a3f; background: rgba(184, 154, 63, 0.07); }
+.wine-card.wt-rose { border-left-color: #d27a90; background: rgba(210, 122, 144, 0.07); }
+.wine-card.wt-spark { border-left-color: #c9a227; background: rgba(201, 162, 39, 0.08); }
+.wine-card.wt-sweet { border-left-color: #a85f1f; background: rgba(168, 95, 31, 0.07); }
+.wbottle { width: 30px; height: 82px; flex: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25)); }
+.wine-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wine-info b { font-size: 14.5px; color: #4a1521; }
+.wine-info span { font-size: 12.5px; color: #6d5b35; line-height: 1.45; }
+.infocard .btn-big { margin-top: 8px; flex: none; }
+/* прокручиваемая часть карточки; кнопка «Продолжить» — отдельно снизу, без наложения */
+.card-scroll { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 
 /* ---------- Передача устройства ---------- */
 #overlay-handoff {

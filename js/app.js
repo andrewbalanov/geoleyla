@@ -12,7 +12,7 @@
     france:    { icon: "🥖", name: "Регионы Франции", desc: "Найди департамент на карте",        diff: false, map: "france", pos: [46, 25], rot: -4, col: "o" },
     usa:       { icon: "🤠", name: "Штаты США",       desc: "Найди штат на карте",               diff: false, map: "usa",    pos: [14, 38], rot: 3,  col: "o" },
     wineworld: { icon: "🍷", name: "Винные регионы мира", desc: "Легендарные терруары планеты + карточки сомелье", diff: false, map: "world" },
-    winefrance:{ icon: "🍇", name: "Винные регионы Франции", desc: "От Шампани до Прованса + карточки сомелье", diff: false, map: "world", homeBounds: [[40.8, -5.8], [51.6, 10.2]] },
+    winefrance:{ icon: "🍇", name: "Винные регионы Франции", desc: "Найди винный регион на карте + карточки сомелье", diff: false, map: "winefr" },
     countries: { icon: "🗺️", name: "Страны мира",     desc: "Найди страну на карте",             diff: true,  map: "world",  pos: [52, 56], rot: 2,  col: "o" },
     flagquiz:  { icon: "🚩", name: "Флаги",           desc: "Выбери правильный флаг из трёх",    diff: false, map: null,     pos: [10, 66], rot: -3, col: "y", region: true },
     places:    { icon: "🏞️", name: "Известные места", desc: "Озёра, водопады, острова — по фото", diff: false, map: "world", pos: [27, 79], rot: 2,  col: "r" },
@@ -30,6 +30,8 @@
     ancient:   { icon: "🏺", ru: "древний мир" },
     space:     { icon: "🚀", ru: "космос" }
   };
+  // режимы, где карточка показывается всегда (настройку вкл/выкл скрываем)
+  var ALWAYS_CARDS = { history: 1, winefrance: 1, wineworld: 1, places: 1, monuments: 1 };
   var PHOTOS = window.PHOTOS || {};
   var SEAS_TYPES = { "море": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1, "гора": 1, "горы": 1, "вулкан": 1, "мыс": 1, "риф": 1, "фьорд": 1, "пустыня": 1 };
   // области (полигоны) для режима «Моря и горы» — заполняется в init из AREAS
@@ -506,6 +508,7 @@
       else if (name === "france") maps[name] = GeoMap.createFrance(div, window.FRANCE_GEO, onPick);
       else if (name === "usa") maps[name] = GeoMap.createUSA(div, window.USA_TOPO, onPick);
       else if (name === "terrain") maps[name] = GeoMap.createTerrain(div, TERRAIN_FEATURES, onPick);
+      else if (name === "winefr") maps[name] = GeoMap.createWineFrance(div, window.WINEFR_GEO, onPick);
     }
     return maps[name];
   }
@@ -596,6 +599,13 @@
       img: img,
       target: [w.lng, w.lat], r: w.r, reveal: w.name };
   }
+  // винный регион Франции как область на карте (fid — индекс в WINEFR_GEO, совпадает с порядком WINE_FRANCE)
+  function qWineFrance(w, fid) {
+    var m = getMap("winefr");
+    return { kind: "country", mode: "winefrance", mapName: "winefr",
+      title: w.name, chip: "винный регион", sub: w.en, revealSub: w.en,
+      wine: w, fid: fid, target: m.centroidOf(fid), decay: 90, reveal: w.name };
+  }
   function qRegions(mapName, chip, decay) {
     var m = getMap(mapName);
     return shuffle(m.features.map(function (f, i) { return i; })).map(function (i) {
@@ -631,7 +641,11 @@
     else if (mode === "france") qs = qRegions("france", "департамент", 110);
     else if (mode === "usa") qs = qRegions("usa", "штат", 450);
     else if (mode === "wineworld") qs = shuffle(window.WINE_WORLD || []).map(function (w) { return qWine(w, "wineworld"); });
-    else if (mode === "winefrance") qs = shuffle(window.WINE_FRANCE || []).map(function (w) { return qWine(w, "winefrance"); });
+    else if (mode === "winefrance") {
+      getMap("winefr"); // создать карту регионов до построения вопросов
+      qs = shuffle((window.WINE_FRANCE || []).map(function (w, i) { return { w: w, i: i }; }))
+        .map(function (x) { return qWineFrance(x.w, x.i); });
+    }
     else if (mode === "flagquiz") qs = qFlagQuiz(region);
     else if (mode === "mix") {
       var lim = n === "all" ? 50 : n;
@@ -819,6 +833,7 @@
     setSeg("#seg-cards", settings.cards);
     $("#row-diff").style.display = m.diff ? "" : "none";
     $("#row-region").style.display = m.region ? "" : "none";
+    $("#row-cards").style.display = ALWAYS_CARDS[mode] ? "none" : ""; // в этих режимах карточки всегда
     var online = NET.active && NET.isHost;
     $("#row-players").style.display = online ? "none" : "";
     $("#row-p1").style.display = "none"; // имя из профиля — поле всегда скрыто
@@ -1260,7 +1275,7 @@
     // инфо-карточка об объекте
     var hasCard = !!getCardData(q);
     $("#btn-card").style.display = hasCard ? "" : "none";
-    if (hasCard && settings.cards !== "off") {
+    if (hasCard && (ALWAYS_CARDS[G.mode] || settings.cards !== "off")) {
       var qi = G.qIndex;
       setTimeout(function () {
         if (G && G.phase === "reveal" && G.qIndex === qi) showCard(q);
@@ -1437,6 +1452,31 @@
       '<text x="' + mx + '" y="11" fill="#5e1825" font-size="11" font-weight="800" text-anchor="middle">' + esc(histYearLabel(year)) + '</text></svg>';
   }
 
+  // тип вина по названию/описанию → цвет бутылки
+  function wineType(w) {
+    var s = ((w.n || "") + " " + (w.d || "")).toLowerCase();
+    if (/игрист|шампан|cr[eéè]mant|просекко|брют|cava|spark|m[eé]thode|franciacorta/.test(s)) return "spark";
+    if (/розе|ros[eé]|rosato|рожев/.test(s)) return "rose";
+    if (/портвейн|херес|мадейр|сладк|ботритиз|изюм|вяленом|асу|asz[uú]|айсвайн|eiswein|passito|сотерн|sauternes|пай|токай|tokaj|ликёрн|десертн|мускат\b|port\b|sherry|fortified|sweet|pedro xim/.test(s)) return "sweet";
+    if (/бел(ое|ый|ого|ых)|шардоне|совиньон|рислинг|шенен|вионье|фурминт|альвариньо|альбариньо|гевюрц|пино гри|вердехо|вермент|альтесс|жакер|шасла|ркацители|асиртико|кортезе|гарганега|white|chardonnay|sauvignon|riesling|chenin|viognier|verdejo|gr[uü]ner|gavi|soave|fino|manzanilla|alvarinho|furmint|assyrtiko/.test(s)) return "white";
+    return "red";
+  }
+  var WINE_COL = { red: "#7d2433", white: "#cdb469", rose: "#ef9bb0", spark: "#d8c46a", sweet: "#a85f1f" };
+  function wineBottle(type) {
+    var col = WINE_COL[type] || "#7d2433";
+    var cap = type === "spark" ? "#c9a227" : (type === "sweet" ? "#5a3a1a" : "#2a1a12");
+    return '<svg viewBox="0 0 44 120" class="wbottle" aria-hidden="true">' +
+      '<rect x="17" y="5" width="10" height="13" rx="2" fill="' + cap + '"/>' +
+      '<path d="M14 42 Q14 30 18.5 26 L18.5 16 H25.5 V26 Q30 30 30 42 V104 Q30 113 22 113 Q14 113 14 104 Z" fill="' + col + '" stroke="#2a1a12" stroke-width="1.4"/>' +
+      '<rect x="14.5" y="66" width="15" height="30" rx="2" fill="#f3ead6" opacity="0.95" stroke="#b9985c" stroke-width="0.6"/>' +
+      '<line x1="17.5" y1="74" x2="26.5" y2="74" stroke="#9c7a3a" stroke-width="1.4"/>' +
+      '<line x1="18.5" y1="80" x2="25.5" y2="80" stroke="#b9985c" stroke-width="1"/>' +
+      '<line x1="18.5" y1="85" x2="25.5" y2="85" stroke="#b9985c" stroke-width="1"/>' +
+      '<rect x="16.5" y="46" width="2.6" height="58" rx="1.3" fill="#fff" opacity="0.22"/>' +
+      (type === "spark" ? '<rect x="16.5" y="16" width="11" height="8" fill="#c9a227"/>' : "") +
+      "</svg>";
+  }
+
   function showCard(q) {
     var d = getCardData(q);
     if (!d) return false;
@@ -1470,9 +1510,20 @@
     var wl = $("#card-wines");
     if (d.wines) {
       wl.style.display = "";
-      wl.innerHTML = '<div class="card-wines-h">' + T("wines5") + "</div>" +
+      // инфографика: какие стили вин делает регион
+      var present = {};
+      d.wines.forEach(function (w) { present[wineType(w)] = 1; });
+      var lbl = { red: "🍷 " + T("wRed"), white: "⚪ " + T("wWhite"), rose: "🌸 " + T("wRose"),
+        spark: "🥂 " + T("wSpark"), sweet: "🍯 " + T("wSweet") };
+      var styleChips = ["red", "white", "rose", "spark", "sweet"].filter(function (t) { return present[t]; })
+        .map(function (t) { return '<span class="wstyle">' + lbl[t] + "</span>"; }).join("");
+      wl.innerHTML =
+        (styleChips ? '<div class="wine-styles">' + styleChips + "</div>" : "") +
+        '<div class="card-wines-h">' + T("wines5") + "</div>" +
         d.wines.map(function (w) {
-          return '<div class="wine-row"><b>' + esc(w.n) + "</b><span>" + esc(w.d) + "</span></div>";
+          var t = wineType(w);
+          return '<div class="wine-card wt-' + t + '">' + wineBottle(t) +
+            '<div class="wine-info"><b>' + esc(w.n) + "</b><span>" + esc(w.d) + "</span></div></div>";
         }).join("");
     } else {
       wl.style.display = "none";

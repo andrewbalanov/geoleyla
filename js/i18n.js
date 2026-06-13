@@ -126,6 +126,7 @@ window.I18N = (function () {
       // подсказки по режимам/прочее
       noQuestions: "Нет вопросов для этого режима",
       wines5: "🍷 Пять знаменитых вин региона",
+      wRed: "красные", wWhite: "белые", wRose: "розе", wSpark: "игристые", wSweet: "сладкие/креплёные",
       capitalCap: "Столица: "
     },
     en: {
@@ -244,6 +245,7 @@ window.I18N = (function () {
       lbEmpty: "No one has played yet — be the first!", lbUnavail: "Leaderboard unavailable",
       noQuestions: "No questions for this mode",
       wines5: "🍷 Five legendary wines of the region",
+      wRed: "reds", wWhite: "whites", wRose: "rosé", wSpark: "sparkling", wSweet: "sweet/fortified",
       capitalCap: "Capital: "
     }
   };
