@@ -254,7 +254,8 @@ window.I18N = (function () {
 
   var MODES_EN = {
     capitals:  { name: "World Capitals", desc: "Find the capital on the map" },
-    seas:      { name: "Seas & Mountains", desc: "Sea and range areas on a terrain map" },
+    seas:      { name: "Seas & Oceans", desc: "All the world's seas and oceans — find them on the map" },
+    mountains: { name: "Mountains", desc: "Mountain ranges of the world — find them on the map" },
     flagsmap:  { name: "Flags: on the Map", desc: "Whose flag? Find the country" },
     france:    { name: "Regions of France", desc: "Find the département on the map" },
     usa:       { name: "US States", desc: "Find the state on the map" },

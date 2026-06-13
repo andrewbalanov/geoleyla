@@ -7,7 +7,8 @@
   // pos: [left%, top%] таблички в меню, rot — наклон, col — цвет
   var MODES = {
     capitals:  { icon: "🏛️", name: "Столицы мира",    desc: "Найди столицу на карте",            diff: true,  map: "world",  pos: [8, 12],  rot: -2, col: "y" },
-    seas:      { icon: "⛰️", name: "Моря и горы",     desc: "Области морей и хребтов — на рельефной карте", diff: false, map: "terrain", pos: [36, 17], rot: -2, col: "y" },
+    seas:      { icon: "🌊", name: "Моря и океаны",   desc: "Все моря и океаны мира — найди на карте", diff: false, map: "terrain", pos: [36, 17], rot: -2, col: "y" },
+    mountains: { icon: "⛰️", name: "Горы",            desc: "Горные массивы мира — найди на карте", diff: false, map: "terrain", pos: [62, 30], rot: 3, col: "y" },
     flagsmap:  { icon: "📍", name: "Флаги: на карте", desc: "Чей флаг? Найди страну",            diff: true,  map: "world",  pos: [76, 12], rot: 2,  col: "o", region: true },
     france:    { icon: "🥖", name: "Регионы Франции", desc: "Найди департамент на карте",        diff: false, map: "france", pos: [46, 25], rot: -4, col: "o" },
     usa:       { icon: "🤠", name: "Штаты США",       desc: "Найди штат на карте",               diff: false, map: "usa",    pos: [14, 38], rot: 3,  col: "o" },
@@ -33,7 +34,10 @@
   // режимы, где карточка показывается всегда (настройку вкл/выкл скрываем)
   var ALWAYS_CARDS = { history: 1, winefrance: 1, wineworld: 1, places: 1, monuments: 1 };
   var PHOTOS = window.PHOTOS || {};
-  var SEAS_TYPES = { "море": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1, "гора": 1, "горы": 1, "вулкан": 1, "мыс": 1, "риф": 1, "фьорд": 1, "пустыня": 1 };
+  // типы-области, исключаемые из «Известных мест» (моря/океаны/горы/пустыни и т.п.)
+  var SEAS_TYPES = { "море": 1, "океан": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1, "гора": 1, "горы": 1, "вулкан": 1, "мыс": 1, "риф": 1, "фьорд": 1, "пустыня": 1 };
+  var WATER_TYPES = { "море": 1, "океан": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1 }; // режим «Моря и океаны»
+  var MOUNTAIN_TYPES = { "горы": 1 };                                                                // режим «Горы» (только массивы)
   // области (полигоны) для режима «Моря и горы» — заполняется в init из AREAS
   var TERRAIN_FEATURES = [];
   var TERRAIN_FIDX = {};
@@ -659,13 +663,13 @@
       sub: p.en, revealSub: p.en, slug: p.img, infoText: p.info || null,
       img: PHOTOS[p.img] ? "assets/places/" + PHOTOS[p.img] : (p.photo || null),
       target: [p.lng, p.lat], r: p.r, reveal: p.name };
-    if (mode === "seas") {
+    if (mode === "seas" || mode === "mountains") {
       q.mapName = "terrain";
       var fid = TERRAIN_FIDX[p.img];
       if (fid != null) {
         q.kind = "country";
         q.fid = fid;
-        q.decay = 350;
+        q.decay = mode === "mountains" ? 450 : 600;
         q.target = d3.geoCentroid(TERRAIN_FEATURES[fid]);
       }
     }
@@ -727,7 +731,9 @@
     else if (mode === "countries") qs = shuffle(poolCountries(top, true)).map(qCountry);
     else if (mode === "flagsmap") qs = shuffle(poolCountries(top, true, region)).map(qFlagMap);
     else if (mode === "places") qs = shuffle(window.PLACES.filter(function (p) { return !SEAS_TYPES[p.type]; })).map(function (p) { return qPlace(p); });
-    else if (mode === "seas") qs = shuffle(window.PLACES.filter(function (p) { return SEAS_TYPES[p.type]; })).map(function (p) { return qPlace(p, "seas"); });
+    // только области с полигоном (window.AREAS) — чтобы ВСЕ подсвечивались и не было дублей без геометрии
+    else if (mode === "seas") qs = shuffle(window.PLACES.filter(function (p) { return WATER_TYPES[p.type] && window.AREAS[p.img]; })).map(function (p) { return qPlace(p, "seas"); });
+    else if (mode === "mountains") qs = shuffle(window.PLACES.filter(function (p) { return MOUNTAIN_TYPES[p.type] && window.AREAS[p.img]; })).map(function (p) { return qPlace(p, "mountains"); });
     else if (mode === "monuments") qs = shuffle(window.MONUMENTS).map(qMonument);
     else if (mode === "history") qs = shuffle(window.HISTORY || []).map(qHistory);
     else if (mode === "france") qs = qRegions("france", "департамент", 110);
@@ -1393,6 +1399,17 @@
         var a = p.answers[G.qIndex]; return a && a.correctRegion;
       });
       if (anyRight) m.markCorrect(q.fid); else m.markMissed(q.fid);
+    } else if (q.mode === "capitals" && !G.online && q.iso2) {
+      // одиночная игра «Столицы»: подсветить всю страну спрошенной столицы —
+      // зелёная, если кликнули внутри нужной страны, иначе жёлтая (до конца раунда)
+      var capCo = iso2ToCountry[q.iso2];
+      if (capCo && capCo.fid != null) {
+        var anyIn = G.players.some(function (p) {
+          var a = p.answers[G.qIndex];
+          return a && a.guess && m.countryAt(a.guess) === capCo.fid;
+        });
+        if (anyIn) m.markCorrect(capCo.fid); else m.markMissed(capCo.fid);
+      }
     }
     m.addTarget("answer", q.target);
     G.players.forEach(function (p, i) {
