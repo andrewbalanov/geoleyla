@@ -1437,8 +1437,7 @@
       var w = sorted[0].score === sorted[1].score ? null : sorted[0];
       if (ps.length === 2) saveH2H(w);
       if (w) {
-        if (isLeyla(w.name)) headline = T("leylaWin") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
-        else headline = T("win") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
+        headline = T("win") + "<b style=\"color:" + w.color + '">' + esc(w.name) + "</b>!";
         sub = sorted.map(function (p) { return p.score.toLocaleString("ru-RU"); }).join(" : ");
         Sound.win();
         confetti(w.color);
@@ -1448,7 +1447,7 @@
         Sound.meh();
       }
     } else {
-      headline = isLeyla(ps[0].name) ? T("leylaWin").replace(/, $/, "!").replace(/,\s*$/, "!") : T("yourResult");
+      headline = T("yourResult");
       sub = ps[0].score.toLocaleString("ru-RU") + " " + T("outOf") + " " + (G.questions.length * 1000).toLocaleString("ru-RU");
       Sound.win();
       confetti(ps[0].color);

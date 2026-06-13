@@ -5,9 +5,7 @@ window.I18N = (function () {
     ru: {
       // меню
       clubLine: "The Oxford & Cambridge", clubTitle: "Географический клуб",
-      clubSub1: "имени любимой ", clubSub2: "Лейлы",
-      oxBadge: "🎓 Учреждён в честь будущей студентки Оксфорда · Est. MMXXVI",
-      portraitPlate: "Лейла · почётный член клуба ♥",
+      clubTagline: "Дуэли знатоков географии", nickPh: "Ваше имя",
       footerNote: "Экспедиции клуба · выберите дисциплину",
       online: "Многопользовательский режим", onlineDesc: "До 4 игроков с разных устройств",
       loginBtn: "👤 Вход · Регистрация",
@@ -123,7 +121,7 @@ window.I18N = (function () {
       // рейтинг
       leadersTitle: "Рейтинг клуба", leadersSub: "Зал славы географических экспедиций",
       loadingLb: "⏳ Загружаем рейтинг…",
-      lbEmpty: "Пока никто не сыграл — будь первой, Лейла!", lbUnavail: "Рейтинг недоступен",
+      lbEmpty: "Пока никто не сыграл — будь первым!", lbUnavail: "Рейтинг недоступен",
       // подсказки по режимам/прочее
       noQuestions: "Нет вопросов для этого режима",
       wines5: "🍷 Пять знаменитых вин региона",
@@ -131,9 +129,7 @@ window.I18N = (function () {
     },
     en: {
       clubLine: "The Oxford & Cambridge", clubTitle: "Geographical Club",
-      clubSub1: "in honour of beloved ", clubSub2: "Leyla",
-      oxBadge: "🎓 Founded for a future Oxford student · Est. MMXXVI",
-      portraitPlate: "Leyla · honorary club member ♥",
+      clubTagline: "Duels for geography buffs", nickPh: "Your name",
       footerNote: "Club expeditions · choose your discipline",
       online: "Multiplayer", onlineDesc: "Up to 4 players across devices",
       loginBtn: "👤 Sign in · Register",
@@ -243,7 +239,7 @@ window.I18N = (function () {
       emailW: "Email", scoreW: "Points", gamesW: "Games", playerW: "Player",
       leadersTitle: "Club Leaderboard", leadersSub: "Hall of fame of geographical expeditions",
       loadingLb: "⏳ Loading leaderboard…",
-      lbEmpty: "No one has played yet — be the first, Leyla!", lbUnavail: "Leaderboard unavailable",
+      lbEmpty: "No one has played yet — be the first!", lbUnavail: "Leaderboard unavailable",
       noQuestions: "No questions for this mode",
       wines5: "🍷 Five legendary wines of the region",
       capitalCap: "Capital: "

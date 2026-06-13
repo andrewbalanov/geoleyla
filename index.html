@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#26413a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Geo-Академия Лейлы · путь в Оксфорд</title>
+<title>Географический клуб · игра по географии</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b4a41'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f1f3ee' stroke-width='3'/%3E%3Cellipse cx='32' cy='32' rx='9' ry='20' fill='none' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Cpath d='M12 32h40M15 22h34M15 42h34' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Ctext x='32' y='40' font-size='20' text-anchor='middle'%3E%E2%9D%A4%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/maplibre-gl.css">
 <link rel="stylesheet" href="css/style.css">
@@ -21,11 +21,7 @@
       <div class="club-crest">✦ ✦ ✦</div>
       <div class="club-line" data-i18n="clubLine">The Oxford &amp; Cambridge</div>
       <h1 class="game-title" data-i18n="clubTitle">Географический клуб</h1>
-      <div class="club-sub"><span data-i18n="clubSub1">имени любимой </span><span class="hero-name" data-i18n="clubSub2">Лейлы</span></div>
-      <div class="portrait-frame welcome-portrait">
-        <div class="leyla-photo"><span class="photo-hint">♥</span></div>
-      </div>
-      <div class="oxford-badge" data-i18n="oxBadge">🎓 Учреждён в честь будущей студентки Оксфорда · Est. MMXXVI</div>
+      <div class="club-tagline" data-i18n="clubTagline">Дуэли знатоков географии</div>
       <div class="welcome-card">
         <div class="welcome-note" data-i18n="membersOnly">Клуб принимает только действительных членов.<br>Войдите — или подайте прошение о вступлении.</div>
         <div class="welcome-wait" id="welcome-wait" data-i18n="checkingMember">Сверяем список членов клуба…</div>
@@ -51,20 +47,11 @@
   <div class="menu-frame" aria-hidden="true"></div>
   <div class="menu-scroll">
     <header class="hero">
-      <div class="portrait">
-        <div class="portrait-frame">
-          <div id="leyla-photo" class="leyla-photo">
-            <span class="photo-hint">♥</span>
-          </div>
-        </div>
-        <div class="portrait-plate" data-i18n="portraitPlate">Лейла · почётный член клуба ♥</div>
-      </div>
       <div class="hero-text">
         <div class="club-crest">✦ ✦ ✦</div>
         <div class="club-line" data-i18n="clubLine">The Oxford &amp; Cambridge</div>
         <h1 class="game-title" data-i18n="clubTitle">Географический клуб</h1>
-        <div class="club-sub"><span data-i18n="clubSub1">имени любимой </span><span class="hero-name" data-i18n="clubSub2">Лейлы</span></div>
-        <div class="oxford-badge" data-i18n="oxBadge">🎓 Учреждён в честь будущей студентки Оксфорда · Est. MMXXVI</div>
+        <div class="club-tagline" data-i18n="clubTagline">Дуэли знатоков географии</div>
       </div>
     </header>
     <div id="account-box" class="account-box"></div>
@@ -93,7 +80,7 @@
     </div>
     <div class="setup-row" id="auth-row-nick" style="display:none">
       <label data-i18n="nickU">Имя игрока (уникальное)</label>
-      <input id="auth-nick" maxlength="16" placeholder="Лейла">
+      <input id="auth-nick" maxlength="16" data-i18n-ph="nickPh" placeholder="Ваше имя">
     </div>
     <div class="setup-row avatar-row" id="auth-row-photo" style="display:none">
       <label data-i18n="yourPhoto">Фото игрока (необязательно)</label>
@@ -262,11 +249,11 @@
 
     <div class="setup-row" id="row-p1">
       <label data-i18n="p1name">Имя игрока 1</label>
-      <input id="inp-p1" maxlength="14" class="p1" placeholder="Лейла">
+      <input id="inp-p1" maxlength="14" class="p1" placeholder="Игрок 1">
     </div>
     <div class="setup-row" id="row-p2">
       <label data-i18n="p2name">Имя игрока 2</label>
-      <input id="inp-p2" maxlength="14" class="p2" placeholder="Андрей">
+      <input id="inp-p2" maxlength="14" class="p2" placeholder="Игрок 2">
     </div>
 
     <div class="setup-row">
@@ -406,7 +393,6 @@
     <h3>Как играть</h3>
     <p>Оба игрока отвечают на <b>один и тот же вопрос</b>. На одном устройстве — по очереди: первый ставит метку, его ответ скрывается, передай устройство второму. Онлайн — одновременно, каждый у себя.</p>
     <p>🎯 Попадание в цель — 1000 очков, дальше — меньше. Общий счёт побед сохраняется.</p>
-    <p class="info-leyla">Цель академии: чтобы Лейла знала географию лучше всех в Оксфорде 🎓♥</p>
     <button class="btn-big btn-orange btn-close">Понятно</button>
   </div>
 </div>

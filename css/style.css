@@ -167,8 +167,8 @@ button:disabled { opacity: 0.55; cursor: default; }
 
 /* --- Hero: овальный портрет + клубный титул --- */
 .hero {
-  display: flex; align-items: center; gap: 26px;
-  padding: 8px 6px 2px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 4px; padding: 10px 6px 2px;
 }
 .portrait { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .portrait-frame {
@@ -194,7 +194,7 @@ button:disabled { opacity: 0.55; cursor: default; }
   padding: 4px 12px; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
 }
 
-.hero-text { display: flex; flex-direction: column; gap: 5px; }
+.hero-text { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .club-crest { color: var(--gold-soft); letter-spacing: 10px; font-size: 13px; }
 .club-line {
   font-family: var(--serif); font-size: clamp(13px, 1.8vw, 17px);
@@ -205,13 +205,10 @@ button:disabled { opacity: 0.55; cursor: default; }
   font-size: clamp(30px, 4.6vw, 46px); line-height: 1.04; color: var(--cream);
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
 }
-.club-sub {
+.club-tagline {
   font-family: var(--serif); font-style: italic;
-  font-size: clamp(16px, 2.4vw, 22px); color: var(--cream-dim);
-}
-.club-sub .hero-name {
-  color: var(--pink-soft); font-weight: 700; font-style: italic;
-  text-shadow: 0 0 18px rgba(255, 95, 162, 0.35);
+  font-size: clamp(15px, 2.2vw, 20px); color: var(--gold-soft);
+  margin-top: 2px;
 }
 .oxford-badge {
   width: fit-content; margin-top: 4px;
