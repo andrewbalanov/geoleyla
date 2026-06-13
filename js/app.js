@@ -4,7 +4,7 @@
 
   // ---------- Константы ----------
   var PLAYER_COLORS = ["#ff5fa2", "#29c5e6", "#e8cd80", "#7ee08b"];
-  var GAME_VERSION = "2.5.4";   // версия игры (показывается в меню снизу слева)
+  var GAME_VERSION = "2.5.5";   // версия игры (показывается в меню снизу слева)
   // pos: [left%, top%] таблички в меню, rot — наклон, col — цвет
   var MODES = {
     capitals:  { icon: "🏛️", name: "Столицы мира",    desc: "Найди столицу на карте",            diff: true,  map: "world",  pos: [8, 12],  rot: -2, col: "y" },
@@ -96,6 +96,39 @@
     var s = "";
     for (var i = 0; i < 4; i++) s += CODE_AB[Math.floor(Math.random() * CODE_AB.length)];
     return s;
+  }
+
+  // --- ICE: STUN + TURN ---
+  // Без TURN-сервера игроки в разных сетях (за symmetric NAT — мобильный интернет,
+  // многие домашние роутеры) не соединяются: STUN даёт только srflx-кандидатов, а
+  // нужен relay. Из-за этого игра «висела на подключении». STUN — всегда; TURN —
+  // через relay, который пробивает любой NAT.
+  var ICE_BASE = [
+    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+  ];
+  // Постоянный свой TURN (рекомендуется бесплатный аккаунт, напр. ExpressTURN): если
+  // задать — используется в первую очередь и работает без обращения к публичному relay.
+  // Пример: [{ urls:"turn:relay1.expressturn.com:3478", username:"...", credential:"..." }]
+  var TURN_STATIC = null;
+  var iceCache = null, iceCacheTs = 0;
+  function buildIce() {
+    if (TURN_STATIC) return Promise.resolve(ICE_BASE.concat(TURN_STATIC));
+    if (iceCache && Date.now() - iceCacheTs < 18 * 60 * 1000) return Promise.resolve(iceCache);
+    return new Promise(function (resolve) {
+      var done = false;
+      function fin(v) { if (done) return; done = true; resolve(v); }
+      setTimeout(function () { fin(ICE_BASE); }, 4000); // не ждём TURN дольше 4с — хотя бы STUN
+      fetch("https://turn.elixir-webrtc.org/?service=turn&username=geoleyla", { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(function (cred) {
+          var turn = (cred.uris || []).map(function (u) {
+            return { urls: u, username: cred.username, credential: cred.password };
+          });
+          if (turn.length) { iceCache = ICE_BASE.concat(turn); iceCacheTs = Date.now(); fin(iceCache); }
+          else fin(ICE_BASE);
+        })
+        .catch(function () { fin(ICE_BASE); });
+    });
   }
   function myName() {
     // имя берём из профиля (вход обязателен), запасной вариант — сохранённое
@@ -224,8 +257,11 @@
     $("#lobby-status").textContent = T("creating");
     renderLobby();
     updateChatVisibility();   // чат — сразу при создании комнаты, не дожидаясь гостя/режима
-    var peer = NET.peer = new Peer("gmleyla-" + NET.code, { debug: 0 });
-    peer.on("open", function () {
+    var code = NET.code;
+    buildIce().then(function (ice) {
+      if (NET.code !== code || !NET.isHost) return;   // комната пересоздана/закрыта, пока ждали ICE
+      var peer = NET.peer = new Peer("gmleyla-" + code, { debug: 0, config: { iceServers: ice } });
+      peer.on("open", function () {
       $("#lobby-code").textContent = NET.code.split("").join(" ");
       var canLink = /^https?:$/.test(location.protocol);
       $("#btn-copy-invite").style.display = canLink ? "" : "none";
@@ -255,6 +291,7 @@
       if (t === "network") return; // связь с брокером — её чинит bindPeerWatch
       $("#lobby-status").textContent = T("netErr", t || err);
     });
+    });
   }
   function myPhotoSmall() {
     return (window.Account && Account.isIn() && Account.photo()) || null;
@@ -267,8 +304,10 @@
     NET.isHost = false;
     $("#online-join-status").textContent = T("connecting");
     var attempts = 0, watchdog = null;
-    var peer = NET.peer = new Peer({ debug: 0 });
-    function tryConnect() {
+    buildIce().then(function (ice) {
+      if (NET.isHost) return;   // состояние сменилось, пока ждали ICE
+      var peer = NET.peer = new Peer({ debug: 0, config: { iceServers: ice } });
+      function tryConnect() {
       if (NET.peer !== peer || peer.destroyed) return;
       if (NET.conn && NET.conn.open) return;
       var c = peer.connect("gmleyla-" + code, { reliable: true });
@@ -300,6 +339,7 @@
       } else {
         $("#online-join-status").textContent = T("netErr", t || err);
       }
+    });
     });
   }
 
@@ -2711,6 +2751,7 @@
     initLeylaPhoto();
     renderMenuMap("#welcome-map");
     if ($("#app-version")) $("#app-version").textContent = "v" + GAME_VERSION;
+    buildIce();   // заранее прогреваем TURN-данные, чтобы создание/вход в комнату был мгновенным
     applyLang();
     renderAccountBox();
 
