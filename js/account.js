@@ -275,11 +275,13 @@ window.Account = (function () {
   // режимов считаем у себя (раньше каждый таб заново тянул 300 доков и иногда отваливался)
   var lbCache = null, lbCacheTs = 0;
   function lbFetch() {
-    return withTimeout(db.collection("users").limit(300).get(), 13000).then(function (snap) {
+    // source:"server" — только полные данные с сервера, без частичного in-memory кэша
+    // (он наполняется слушателем вызовов и при сбое сети отдавал неполный список)
+    return withTimeout(db.collection("users").limit(300).get({ source: "server" }), 13000).then(function (snap) {
       var raw = [];
       snap.forEach(function (d) { if (!SKIP_UIDS[d.id]) raw.push({ uid: d.id, v: d.data() }); });
-      lbCache = raw; lbCacheTs = Date.now();
-      return raw;
+      if (raw.length) { lbCache = raw; lbCacheTs = Date.now(); }  // не затираем хорошие данные пустым ответом
+      return raw.length ? raw : (lbCache || raw);
     });
   }
   function leaderboard(mode) {
@@ -297,7 +299,10 @@ window.Account = (function () {
       return rows.slice(0, 50);
     }
     if (lbCache && Date.now() - lbCacheTs < 60000) return Promise.resolve(parse(lbCache)); // свежий кэш — без обращения к базе
-    return lbFetch().then(parse).catch(function () { return lbFetch().then(parse); });     // одна повторная попытка при сбое
+    return lbFetch().catch(function () { return lbFetch(); }).then(parse).catch(function (e) {
+      if (lbCache) return parse(lbCache);  // сбой/таймаут — показываем последние удачные данные, а не ошибку/пустоту
+      throw e;
+    });
   }
   function invalidateLeaderboard() { lbCache = null; }
 
