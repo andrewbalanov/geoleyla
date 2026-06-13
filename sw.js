@@ -1,6 +1,6 @@
 /* Service worker: network-first, чтобы обновления приходили сразу,
    а офлайн — отдаём из кэша. Делает игру устанавливаемой как приложение. */
-var CACHE = "geoclub-v1";
+var CACHE = "geoclub-v3";
 
 self.addEventListener("install", function (e) {
   self.skipWaiting();
@@ -22,8 +22,12 @@ self.addEventListener("fetch", function (e) {
   var url = new URL(req.url);
   // кэшируем только свой origin; внешние тайлы/Firebase/PeerJS — всегда сеть
   if (url.origin !== self.location.origin) return;
+  // ВСЕГДА перепроверяем у сервера (no-cache), иначе после деплоя браузер мог бы
+  // отдать смесь старых и новых файлов из HTTP-кэша и сломать запуск режимов
+  var fresh;
+  try { fresh = new Request(req, { cache: "no-cache" }); } catch (e) { fresh = req; }
   e.respondWith(
-    fetch(req).then(function (res) {
+    fetch(fresh).then(function (res) {
       if (res && res.status === 200 && res.type === "basic") {
         var copy = res.clone();
         caches.open(CACHE).then(function (c) { c.put(req, copy); });
