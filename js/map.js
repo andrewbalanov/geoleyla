@@ -111,9 +111,11 @@
     var ST = function (name) { return ["boolean", ["feature-state", name], false]; };
     // green — верный ответ (угадал), yellow — верный ответ, но игрок промахнулся,
     // wrong — куда указал ошибочно, sel — выбор до подтверждения
+    // pcolor — индивидуальный цвет игрока (мультиплеер): заливка области в его цвет
+    var PC = ["coalesce", ["feature-state", "pcolor"], "#888"];
     if (config.wineRegions) {
-      // винные регионы Франции: каждый окрашен своим приглушённым цветом (явно отмечен),
-      // на ответе — зелёный/жёлтый/красный, как у стран
+      // винные регионы: каждый окрашен своим приглушённым цветом (явно отмечен),
+      // на ответе — зелёный/жёлтый/красный (или цвет игрока в мультиплеере)
       style.layers.push({
         id: "regions-fill", type: "fill", source: "regions",
         paint: {
@@ -122,9 +124,10 @@
             ST("yellow"), "#f0c93a",
             ST("wrong"), "#e15b5b",
             ST("sel"), "#5b9bd5",
+            ST("pcolork"), PC,
             ["coalesce", ["get", "tint"], "#9c6b4a"]],
           "fill-opacity": ["case",
-            ST("green"), 0.8, ST("yellow"), 0.78, ST("wrong"), 0.7, ST("sel"), 0.7,
+            ST("green"), 0.8, ST("yellow"), 0.78, ST("wrong"), 0.7, ST("sel"), 0.7, ST("pcolork"), 0.8,
             0.5]
         }
       });
@@ -141,12 +144,14 @@
             ST("yellow"), "#f0c93a",
             ST("wrong"), "#e15b5b",
             ST("sel"), "#5b9bd5",
+            ST("pcolork"), PC,
             "#ffffff"],
           "fill-opacity": ["case",
             ST("green"), 0.78,
             ST("yellow"), 0.74,
             ST("wrong"), 0.62,
             ST("sel"), 0.65,
+            ST("pcolork"), 0.8,
             0.85]
         }
       });
@@ -154,8 +159,8 @@
         id: "regions-line", type: "line", source: "regions",
         paint: { "line-color": "#8e9aa0", "line-width": 1.1 }
       });
-    } else {
-      // мир/terrain: заливка видна только для верного/жёлтого/промаха
+    } else if (config.grayBase) {
+      // режим «Горы»: все массивы заранее серой заливкой; на ответе — цвет
       style.layers.push({
         id: "regions-fill", type: "fill", source: "regions",
         paint: {
@@ -164,21 +169,44 @@
             ST("yellow"), "#f0c93a",
             ST("wrong"), "#e15b5b",
             ST("sel"), "#5b9bd5",
+            ST("pcolork"), PC,
+            "#8d8378"],
+          "fill-opacity": ["case",
+            ST("green"), 0.8, ST("yellow"), 0.76, ST("wrong"), 0.68, ST("sel"), 0.64, ST("pcolork"), 0.8,
+            0.42]
+        }
+      });
+      style.layers.push({
+        id: "regions-line", type: "line", source: "regions",
+        paint: { "line-color": "rgba(70,55,40,0.5)", "line-width": 0.7 }
+      });
+    } else {
+      // мир/terrain: заливка видна только для верного/жёлтого/промаха/цвета игрока
+      style.layers.push({
+        id: "regions-fill", type: "fill", source: "regions",
+        paint: {
+          "fill-color": ["case",
+            ST("green"), "#3cb84d",
+            ST("yellow"), "#f0c93a",
+            ST("wrong"), "#e15b5b",
+            ST("sel"), "#5b9bd5",
+            ST("pcolork"), PC,
             "#79ca7f"],
           "fill-opacity": ["case",
             ST("green"), 0.62,
             ST("yellow"), 0.6,
             ST("wrong"), 0.62,
             ST("sel"), 0.45,
+            ST("pcolork"), 0.6,
             0]
         }
       });
       style.layers.push({
         id: "regions-line", type: "line", source: "regions",
         paint: {
-          "line-color": ["case", ST("wrong"), "#8e2f2f", ST("yellow"), "#9c7a17", "#1d7c2c"],
+          "line-color": ["case", ST("wrong"), "#8e2f2f", ST("yellow"), "#9c7a17", ST("pcolork"), PC, "#1d7c2c"],
           "line-width": 2.4,
-          "line-opacity": ["case", ST("green"), 0.95, ST("yellow"), 0.9, ST("wrong"), 0.85, 0]
+          "line-opacity": ["case", ST("green"), 0.95, ST("yellow"), 0.9, ST("wrong"), 0.85, ST("pcolork"), 0.9, 0]
         }
       });
     }
@@ -396,6 +424,14 @@
       self.map.setFeatureState({ source: "regions", id: fid }, { yellow: true });
     });
   };
+  // верный ответ конкретного игрока — его цветом (мультиплеер), до конца матча
+  GeoMap.prototype.markPlayer = function (fid, color) {
+    var self = this;
+    this.found[fid] = "pcolor";
+    this._whenReady(function () {
+      self.map.setFeatureState({ source: "regions", id: fid }, { pcolork: true, pcolor: color, green: false, yellow: false });
+    });
+  };
   GeoMap.prototype.clearFound = function () {
     var self = this;
     var ids = Object.keys(this.found);
@@ -405,7 +441,7 @@
     this.cityLabels = {};
     this._whenReady(function () {
       ids.forEach(function (id) {
-        self.map.setFeatureState({ source: "regions", id: +id }, { green: false, yellow: false });
+        self.map.setFeatureState({ source: "regions", id: +id }, { green: false, yellow: false, pcolork: false });
       });
     });
   };
@@ -544,6 +580,21 @@
       name: "terrain",
       features: areaFeatures,
       regions: false,
+      style: window.MAP_STYLE_TERRAIN || window.MAP_STYLE,
+      bounds: [[-54, -170], [73, 170]],
+      maxBounds: [[-85, -179.9], [85, 179.9]],
+      minZoom: 1.0,
+      maxZoom: 13,
+      onPick: onPick
+    });
+  };
+
+  // режим «Горы»: только горные массивы, все заранее серой заливкой (grayBase)
+  GeoMap.createMountains = function (container, areaFeatures, onPick) {
+    return new GeoMap(container, {
+      name: "mountains",
+      features: areaFeatures,
+      grayBase: true,
       style: window.MAP_STYLE_TERRAIN || window.MAP_STYLE,
       bounds: [[-54, -170], [73, 170]],
       maxBounds: [[-85, -179.9], [85, 179.9]],

@@ -39,8 +39,10 @@
   var WATER_TYPES = { "море": 1, "океан": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1 }; // режим «Моря и океаны»
   var MOUNTAIN_TYPES = { "горы": 1 };                                                                // режим «Горы» (только массивы)
   // области (полигоны) для режима «Моря и горы» — заполняется в init из AREAS
-  var TERRAIN_FEATURES = [];
+  var TERRAIN_FEATURES = [];   // моря и океаны (карта terrain)
   var TERRAIN_FIDX = {};
+  var MTN_FEATURES = [];       // горные массивы (карта mountains, серая заливка)
+  var MTN_FIDX = {};
 
   // ---------- Утилиты ----------
   function $(sel) { return document.querySelector(sel); }
@@ -172,6 +174,12 @@
     for (var i = 0; i < NET.players.length; i++) if (NET.players[i].pid === pid) return NET.players[i].name;
     return "—";
   }
+  function chatAvatar(pid, name) {
+    var p = null;
+    for (var i = 0; i < NET.players.length; i++) if (NET.players[i].pid === pid) { p = NET.players[i]; break; }
+    if (p && p.photo) return '<img class="chat-av" src="' + esc(p.photo) + '" alt="" onerror="this.style.display=\'none\'">';
+    return genAvatar(name || (p && p.name) || "?", "chat-av");
+  }
   function renderChat() {
     var log = $("#chat-log"); if (!log) return;
     if (!NET.chat.length) { log.innerHTML = '<div class="chat-empty">' + esc(T("chatEmpty")) + "</div>"; return; }
@@ -179,8 +187,9 @@
       var mine = m.pid === NET.myPid;
       var who = mine ? T("chatYou") : (m.name || chatName(m.pid));
       return '<div class="chat-msg' + (mine ? " mine" : "") + '">' +
-        '<span class="chat-who">' + esc(who) + "</span>" +
-        '<span class="chat-text">' + esc(m.text) + "</span></div>";
+        chatAvatar(m.pid, m.name) +
+        '<div class="chat-bubble"><span class="chat-who">' + esc(who) + "</span>" +
+        '<span class="chat-text">' + esc(m.text) + "</span></div></div>";
     }).join("");
     log.scrollTop = log.scrollHeight;
   }
@@ -425,7 +434,7 @@
     }).join("");
     $$("#lobby-players .lp-kick").forEach(function (b) {
       b.onclick = function () {
-        if (confirm(T("kickQ"))) kickPlayer(Number(b.getAttribute("data-pid")));
+        confirmDialog(T("kickQ"), T("kickYes"), function () { kickPlayer(Number(b.getAttribute("data-pid"))); }, "🚪");
       };
     });
     // выбранный режим
@@ -604,12 +613,13 @@
       else if (name === "france") maps[name] = GeoMap.createFrance(div, window.FRANCE_GEO, onPick);
       else if (name === "usa") maps[name] = GeoMap.createUSA(div, window.USA_TOPO, onPick);
       else if (name === "terrain") maps[name] = GeoMap.createTerrain(div, TERRAIN_FEATURES, onPick);
+      else if (name === "mountains") maps[name] = GeoMap.createMountains(div, MTN_FEATURES, onPick);
       else if (name === "winefr") maps[name] = GeoMap.createWineFrance(div, window.WINEFR_GEO, onPick);
-      else if (name === "wineworld") maps[name] = GeoMap.createWineWorld(div, window.WINEWORLD_GEO, onPick);
+      else if (name === "wineworld") maps[name] = GeoMap.createWineWorld(div, { type: "FeatureCollection", features: (((window.WINEFR_GEO || {}).features) || []).concat(((window.WINEWORLD_GEO || {}).features) || []) }, onPick);
       // подсказка при наведении — локализованное имя области
       var mp = maps[name];
       if (mp && mp.setTipNamer) {
-        if (name === "world") mp.setTipNamer(function (fid) { var c = fidToCountry[fid]; return c ? (I18N.lang() === "en" ? c.nameEn : c.name) : null; });
+        if (name === "world") mp.setTipNamer(function (fid) { var c = fidToCountry[fid]; if (!c) return null; var en2 = I18N.lang() === "en"; var nm = en2 ? c.nameEn : c.name; var cap = en2 ? c.capitalEn : c.capital; return cap ? (nm + ", " + cap) : nm; });
         else mp.setTipNamer(function (fid) { var pr = mp.features[fid] && mp.features[fid].properties; return pr ? (I18N.lang() === "en" ? (pr.orig || pr.name) : (pr.name || pr.orig)) : null; });
       }
     }
@@ -669,15 +679,14 @@
       sub: p.en, revealSub: p.en, slug: p.img, infoText: p.info || null,
       img: PHOTOS[p.img] ? "assets/places/" + PHOTOS[p.img] : (p.photo || null),
       target: [p.lng, p.lat], r: p.r, reveal: p.name };
-    if (mode === "seas" || mode === "mountains") {
+    if (mode === "seas") {
       q.mapName = "terrain";
       var fid = TERRAIN_FIDX[p.img];
-      if (fid != null) {
-        q.kind = "country";
-        q.fid = fid;
-        q.decay = mode === "mountains" ? 450 : 600;
-        q.target = d3.geoCentroid(TERRAIN_FEATURES[fid]);
-      }
+      if (fid != null) { q.kind = "country"; q.fid = fid; q.decay = 600; q.target = d3.geoCentroid(TERRAIN_FEATURES[fid]); }
+    } else if (mode === "mountains") {
+      q.mapName = "mountains";
+      var mf = MTN_FIDX[p.img];
+      if (mf != null) { q.kind = "country"; q.fid = mf; q.decay = 450; q.target = d3.geoCentroid(MTN_FEATURES[mf]); }
     }
     return q;
   }
@@ -746,7 +755,10 @@
     else if (mode === "usa") qs = qRegions("usa", "штат", 450);
     else if (mode === "wineworld") {
       getMap("wineworld"); // создать карту регионов до построения вопросов
-      qs = shuffle((window.WINE_WORLD || []).map(function (w, i) { return { w: w, i: i }; }))
+      // включает все винные регионы Франции (как в отдельном режиме) + регионы мира,
+      // порядок строго совпадает с порядком фич карты (WINEFR + WINEWORLD)
+      var winePool = ((window.WINE_FRANCE || []).concat(window.WINE_WORLD || []));
+      qs = shuffle(winePool.map(function (w, i) { return { w: w, i: i }; }))
         .map(function (x) { return qWineWorld(x.w, x.i); });
     }
     else if (mode === "winefrance") {
@@ -785,6 +797,18 @@
   function showScreen(id) {
     $$(".screen").forEach(function (s) { s.classList.toggle("active", s.id === id); });
     updateChatVisibility();
+  }
+
+  // стилизованное окно подтверждения вместо системного confirm()
+  function confirmDialog(text, yesLabel, onYes, emoji) {
+    var ov = $("#overlay-confirm");
+    if (!ov) { if (window.confirm(text)) onYes(); return; }
+    $("#confirm-text").textContent = text;
+    $("#confirm-yes").textContent = yesLabel || T("quitYes");
+    $("#confirm-emoji").textContent = emoji || "🚪";
+    $("#confirm-yes").onclick = function () { ov.classList.remove("show"); onYes(); };
+    $("#confirm-no").onclick = function () { ov.classList.remove("show"); };
+    ov.classList.add("show");
   }
 
   // ---------- Меню ----------
@@ -1212,7 +1236,7 @@
     }).join("");
     $$("#score-chips .chip-kick").forEach(function (b) {
       b.onclick = function () {
-        if (confirm(T("kickQ"))) kickPlayer(Number(b.getAttribute("data-pid")));
+        confirmDialog(T("kickQ"), T("kickYes"), function () { kickPlayer(Number(b.getAttribute("data-pid"))); }, "🚪");
       };
     });
   }
@@ -1399,27 +1423,39 @@
 
   // подпись ключевого (крупнейшего) города области — на карте до конца матча
   function addCityLabelFor(m, q) {
-    var en = I18N.lang() === "en";
     if (q.mode === "france" && m.features[q.fid]) {
       var c = (window.CITY_FR || {})[m.features[q.fid].properties.code];
       if (c) m.addCityLabel(q.fid, [c.lng, c.lat], c.city);
     } else if (q.mode === "usa" && m.features[q.fid]) {
       var cu = (window.CITY_US || {})[m.features[q.fid].properties.orig];
       if (cu) m.addCityLabel(q.fid, [cu.lng, cu.lat], cu.city);
-    } else if (q.mode === "countries") {
-      var co = fidToCountry[q.fid];
-      if (co && co.clat != null) m.addCityLabel(q.fid, [co.clng, co.clat], en ? co.capitalEn : co.capital);
+    }
+    // «Страны мира» — подпись города на карте НЕ добавляем (визуально тяжело);
+    // название страны и столица показываются во всплывающей подсказке при наведении
+  }
+
+  // подсветка верной области с учётом каждого игрока:
+  // одиночная — зелёный/жёлтый; мультиплеер — цветом игрока (онлайн: своим; локально: цвет того,
+  // кто угадал; если угадали несколько — зелёным; никто — жёлтым).
+  function colorAnswerRegion(m, fid, isCorrect) {
+    if (G.online) {
+      var me = G.players[G.myIdx];
+      if (me && isCorrect(me.answers[G.qIndex])) m.markPlayer(fid, me.color);
+      else m.markMissed(fid);
+    } else if (G.players.length > 1) {
+      var ok = G.players.filter(function (p) { return isCorrect(p.answers[G.qIndex]); });
+      if (ok.length === 1) m.markPlayer(fid, ok[0].color);
+      else if (ok.length >= 2) m.markCorrect(fid);
+      else m.markMissed(fid);
+    } else {
+      if (isCorrect(G.players[0].answers[G.qIndex])) m.markCorrect(fid); else m.markMissed(fid);
     }
   }
 
   function revealMap(q) {
     var m = cur();
     if (q.kind === "country") {
-      // верный регион: зелёный если кто-то угадал точно, иначе жёлтый (промах) — до конца игры
-      var anyRight = G.players.some(function (p) {
-        var a = p.answers[G.qIndex]; return a && a.correctRegion;
-      });
-      if (anyRight) m.markCorrect(q.fid); else m.markMissed(q.fid);
+      colorAnswerRegion(m, q.fid, function (a) { return a && a.correctRegion; });
     } else if (q.mode === "capitals" && !G.online && q.iso2) {
       // одиночная игра «Столицы»: подсветить всю страну спрошенной столицы —
       // зелёная, если кликнули внутри нужной страны, иначе жёлтая (до конца раунда)
@@ -2352,10 +2388,15 @@
     if (window.AREAS) {
       window.PLACES.forEach(function (p) {
         var g = window.AREAS[p.img];
-        if (g && TERRAIN_FIDX[p.img] == null) {
+        if (!g) return;
+        if (WATER_TYPES[p.type] && TERRAIN_FIDX[p.img] == null) {
           fixWinding(g);
           TERRAIN_FIDX[p.img] = TERRAIN_FEATURES.length;
           TERRAIN_FEATURES.push({ type: "Feature", properties: { name: p.name, orig: p.en }, geometry: g });
+        } else if (MOUNTAIN_TYPES[p.type] && MTN_FIDX[p.img] == null) {
+          fixWinding(g);
+          MTN_FIDX[p.img] = MTN_FEATURES.length;
+          MTN_FEATURES.push({ type: "Feature", properties: { name: p.name, orig: p.en }, geometry: g });
         }
       });
     }
@@ -2377,7 +2418,7 @@
     $("#btn-rematch").onclick = rematch;
     $("#btn-results-menu").onclick = quitToMenu;
     $("#btn-quit").onclick = function () {
-      if (confirm(T("quitQ"))) quitToMenu();
+      confirmDialog(T("quitQ"), T("quitYes"), quitToMenu, "🚪");
     };
     $("#btn-trophy").onclick = openLeaders;
     $("#btn-info").onclick = function () { $("#overlay-info").classList.add("show"); };
@@ -2385,8 +2426,9 @@
     $("#btn-settings").onclick = function () { if (window.Account && Account.isIn()) openProfile(); else openAuth(); };
     $("#btn-logout-corner").onclick = function () {
       if (!(window.Account && Account.isIn())) return;
-      if (!confirm(T("logoutQ"))) return;
-      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+      confirmDialog(T("logoutQ"), T("quitYes"), function () {
+        Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+      }, "👋");
     };
     $$(".overlay-card .btn-close").forEach(function (b) {
       b.onclick = function () { b.closest(".overlay").classList.remove("show"); };
@@ -2563,8 +2605,9 @@
     $("#btn-prof-back").onclick = function () { renderMenu(); showScreen("screen-menu"); };
     $("#btn-leaders-back").onclick = function () { showScreen("screen-menu"); };
     $("#btn-logout").onclick = function () {
-      if (!confirm(T("logoutQ"))) return;
-      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+      confirmDialog(T("logoutQ"), T("quitYes"), function () {
+        Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+      }, "👋");
     };
     $("#btn-prof-nick").onclick = function () {
       Account.changeNick($("#prof-nick").value).then(function () {

@@ -428,6 +428,17 @@
     <button class="btn-big btn-orange" id="btn-net-menu">В меню</button>
   </div>
 </div>
+<!-- Универсальное окно подтверждения (в стиле игры, вместо системного) -->
+<div class="overlay" id="overlay-confirm">
+  <div class="overlay-card confirm-card">
+    <div class="confirm-emoji" id="confirm-emoji">🚪</div>
+    <p class="confirm-text" id="confirm-text"></p>
+    <div class="confirm-actions">
+      <button class="btn-big confirm-cancel" id="confirm-no" data-i18n="cancel">Отмена</button>
+      <button class="btn-big btn-orange" id="confirm-yes">ОК</button>
+    </div>
+  </div>
+</div>
 <!-- Гайд: установка как приложение -->
 <div class="overlay" id="overlay-install">
   <div class="install-card">
@@ -467,10 +478,10 @@
   <div id="chat-panel" class="chat-panel" role="dialog" aria-label="Чат">
     <div class="chat-head">
       <span class="chat-title">💬 <span data-i18n="chatTitle">Чат</span></span>
-      <button id="chat-collapse" class="chat-collapse" title="Свернуть" aria-label="Свернуть">▾</button>
     </div>
     <div id="chat-log" class="chat-log"></div>
     <form id="chat-form" class="chat-form" autocomplete="off">
+      <button type="button" id="chat-collapse" class="chat-collapse" title="Свернуть" aria-label="Свернуть чат">⌄</button>
       <input id="chat-input" class="chat-input" maxlength="300" autocomplete="off" data-i18n-ph="chatPh" placeholder="Сообщение…">
       <button type="submit" class="chat-send" title="Отправить" aria-label="Отправить">➤</button>
     </form>

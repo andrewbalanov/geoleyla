@@ -79,6 +79,7 @@ window.I18N = (function () {
       inviteMsg: "⚔️ {0} вызывает тебя на онлайн-дуэль в GeoLeyla — Географическом клубе Оксфорда и Кембриджа! 🌍 Столицы, флаги, моря и винные регионы: кто знает карту лучше? Принимай вызов:",
       or: "или",
       quitQ: "Завершить игру и выйти в меню?",
+      cancel: "Отмена", quitYes: "Выйти", kickYes: "Исключить",
       // итоги
       win: "🏆 Победа: ", drawT: "🤝 Ничья!", yourResult: "Твой результат",
       leylaWin: "🎓 Оксфорд всё ближе, ", outOf: "из",
@@ -205,6 +206,7 @@ window.I18N = (function () {
       inviteMsg: "⚔️ {0} challenges you to an online duel in GeoLeyla — the Oxford & Cambridge Geographical Club! 🌍 Capitals, flags, seas and wine regions: who knows the map better? Accept the challenge:",
       or: "or",
       quitQ: "End the game and return to menu?",
+      cancel: "Cancel", quitYes: "Quit", kickYes: "Remove",
       win: "🏆 Winner: ", drawT: "🤝 It's a draw!", yourResult: "Your result",
       leylaWin: "🎓 Oxford is getting closer, ", outOf: "of",
       question: "Question", rematch: "⚔ Rematch", rematchHost: "⚔ Host starts the rematch",
