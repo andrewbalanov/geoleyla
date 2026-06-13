@@ -208,22 +208,33 @@ window.Account = (function () {
   function addScore(pts) {
     if (!user || !db || !pts) return Promise.resolve();
     if (profile) { profile.totalScore = (profile.totalScore || 0) + pts; profile.games = (profile.games || 0) + 1; notify(); }
-    return db.collection("users").doc(user.uid).update({
+    // set+merge вместо update — начислит очки и счётчик игр, даже если документа ещё нет
+    return db.collection("users").doc(user.uid).set({
       totalScore: firebase.firestore.FieldValue.increment(pts),
       games: firebase.firestore.FieldValue.increment(1)
-    }).catch(function () {});
+    }, { merge: true }).catch(function () {});
   }
 
-  function leaderboard() {
-    return withTimeout(db.collection("users").orderBy("totalScore", "desc").limit(60).get(), 9000).then(function (snap) {
-      var rows = [];
-      snap.forEach(function (d) {
-        var v = d.data();
-        if ((v.totalScore || 0) <= 0) return; // пустые и удалённые аккаунты не показываем
-        rows.push({ uid: d.id, nick: v.nick, score: v.totalScore || 0, games: v.games || 0, photo: v.photo || null });
-      });
-      return rows.slice(0, 50);
+  // осиротевшие тест-аккаунты (auth удалён, документ обнулить уже нельзя) — прячем из рейтинга
+  var SKIP_UIDS = { "EdXftNsdSlUdacOn3cqcpMBGJXC3": 1 };
+  function parseLeaders(snap) {
+    var rows = [];
+    snap.forEach(function (d) {
+      if (SKIP_UIDS[d.id]) return;
+      var v = d.data();
+      if ((v.totalScore || 0) <= 0) return; // пустые и удалённые аккаунты не показываем
+      rows.push({ uid: d.id, nick: v.nick, score: v.totalScore || 0, games: v.games || 0, photo: v.photo || null });
     });
+    rows.sort(function (a, b) { return b.score - a.score; });
+    return rows.slice(0, 50);
+  }
+  function leaderboard() {
+    return withTimeout(db.collection("users").orderBy("totalScore", "desc").limit(60).get(), 9000)
+      .then(parseLeaders)
+      .catch(function () {
+        // запасной путь, если серверная сортировка/индекс подвели — тянем без orderBy и сортируем у себя
+        return withTimeout(db.collection("users").limit(300).get(), 12000).then(parseLeaders);
+      });
   }
 
   return {

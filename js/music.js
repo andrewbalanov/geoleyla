@@ -8,9 +8,9 @@ window.Music = (function () {
     { f: "assets/music/crossing-the-divide.mp3", n: "Crossing the Divide" },
     { f: "assets/music/five-armies.mp3", n: "Five Armies" }
   ];
-  var on = true, idx = 0, started = false;
+  var on = false, idx = 0, started = false;
   try {
-    on = localStorage.getItem("gm_music") !== "0";
+    on = localStorage.getItem("gm_music") === "1"; // по умолчанию выключено
     idx = Math.min(TRACKS.length - 1, parseInt(localStorage.getItem("gm_track") || "0", 10) || 0);
   } catch (e) {}
 

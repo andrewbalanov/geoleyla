@@ -89,10 +89,10 @@
             ST("sel"), "#5b9bd5",
             "#79ca7f"],
           "fill-opacity": ["case",
-            ST("answer"), 0.55,
-            ST("wrong"), 0.45,
-            ST("sel"), 0.4,
-            ST("found"), 0.3,
+            ST("answer"), 0.62,
+            ST("wrong"), 0.62,
+            ST("sel"), 0.45,
+            ST("found"), 0.55,
             0]
         }
       });
@@ -100,8 +100,8 @@
         id: "regions-line", type: "line", source: "regions",
         paint: {
           "line-color": ["case", ST("wrong"), "#8e2f2f", "#1d7c2c"],
-          "line-width": 2,
-          "line-opacity": ["case", ST("answer"), 0.9, ST("wrong"), 0.7, 0]
+          "line-width": 2.4,
+          "line-opacity": ["case", ST("answer"), 0.95, ST("wrong"), 0.85, ST("found"), 0.7, 0]
         }
       });
     }

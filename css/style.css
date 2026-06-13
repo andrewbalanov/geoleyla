@@ -484,7 +484,18 @@ img.av {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 .glass-btn:active { transform: scale(0.94); }
-.btn-music.off, .btn-music.off:hover { opacity: 0.4; }
+
+/* кнопки звука/музыки: явное красное перечёркивание когда выключено */
+.btn-music, .btn-mute { position: relative; overflow: visible; }
+.btn-music.off, .btn-mute.off { opacity: 0.72; }
+.btn-music.off::after, .btn-mute.off::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 116%; height: 3.5px; border-radius: 3px;
+  background: #ff4040;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.7), 0 0 2px #ff4040;
+  pointer-events: none;
+}
 
 /* ===================== НАСТРОЙКА / ОНЛАЙН ===================== */
 #screen-setup, #screen-online, #screen-auth, #screen-profile, #screen-leaders { overflow-y: auto; align-items: center; }
@@ -712,11 +723,12 @@ img.av {
 }
 
 .topbar-right { display: flex; align-items: center; gap: 8px; }
+.sound-grp { display: flex; gap: 6px; flex: none; }
 .topbar-right .btn-mute, .topbar-right .btn-music {
   background: rgba(255, 255, 255, 0.08); border: 1px solid var(--gold-dim);
   border-radius: 10px; font-size: 15px; padding: 5px 8px; color: var(--text);
 }
-.topbar-right .btn-music.off { opacity: 0.4; }
+.topbar-right .btn-music.off, .topbar-right .btn-mute.off { opacity: 0.72; }
 #score-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .score-chip {
   display: inline-flex; align-items: center; gap: 6px;

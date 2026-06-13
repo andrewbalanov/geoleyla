@@ -788,6 +788,8 @@
     pendingMode = mode;
     var m = MODES[mode];
     $("#setup-title").innerHTML = m.icon + " " + I18N.modeName(mode, m.name);
+    // имя первого игрока берём из профиля — отдельное поле не нужно
+    if (window.Account && Account.isIn() && Account.nick()) settings.p1 = Account.nick();
     $("#inp-p1").value = settings.p1;
     $("#inp-p2").value = settings.p2;
     setSeg("#seg-players", settings.twoPlayers ? "2" : "1");
@@ -800,7 +802,7 @@
     $("#row-region").style.display = m.region ? "" : "none";
     var online = NET.active && NET.isHost;
     $("#row-players").style.display = online ? "none" : "";
-    $("#row-p1").style.display = online ? "none" : "";
+    $("#row-p1").style.display = "none"; // имя из профиля — поле всегда скрыто
     $("#row-p2").style.display = online ? "none" : (settings.twoPlayers ? "" : "none");
     $("#setup-online-note").style.display = online ? "" : "none";
     if (online) $("#setup-online-note").innerHTML = T("roomNote",
@@ -837,7 +839,8 @@
   }
 
   function readSettings() {
-    settings.p1 = ($("#inp-p1").value || "Лейла").trim().slice(0, 14) || "Лейла";
+    var accNick = window.Account && Account.isIn() && Account.nick();
+    settings.p1 = (accNick || $("#inp-p1").value || settings.p1 || "Лейла").trim().slice(0, 14) || "Лейла";
     settings.p2 = ($("#inp-p2").value || "Андрей").trim().slice(0, 14) || "Андрей";
     settings.twoPlayers = getSeg("#seg-players") === "2";
     var nq = getSeg("#seg-nq") || "10";
@@ -1835,7 +1838,12 @@
 
   // ---------- Звук ----------
   function updateMuteBtns() {
-    $$(".btn-mute").forEach(function (b) { b.textContent = Sound.isMuted() ? "🔇" : "🔊"; });
+    var muted = Sound.isMuted();
+    $$(".btn-mute").forEach(function (b) {
+      b.textContent = "🔊";
+      b.classList.toggle("off", muted);
+      b.title = muted ? "Звук выключен — включить" : "Звуки игры";
+    });
   }
   function updateMusicBtns() {
     $$(".btn-music").forEach(function (b) {
