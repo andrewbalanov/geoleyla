@@ -4,7 +4,7 @@
 
   // ---------- Константы ----------
   var PLAYER_COLORS = ["#ff5fa2", "#29c5e6", "#e8cd80", "#7ee08b"];
-  var GAME_VERSION = "2.5.2";   // версия игры (показывается в меню снизу слева)
+  var GAME_VERSION = "2.5.3";   // версия игры (показывается в меню снизу слева)
   // pos: [left%, top%] таблички в меню, rot — наклон, col — цвет
   var MODES = {
     capitals:  { icon: "🏛️", name: "Столицы мира",    desc: "Найди столицу на карте",            diff: true,  map: "world",  pos: [8, 12],  rot: -2, col: "y" },
@@ -231,6 +231,11 @@
       $("#btn-copy-invite").style.display = canLink ? "" : "none";
       $("#share-row").style.display = canLink ? "" : "none";
       renderLobby();
+      // комната зарегистрирована у брокера — теперь безопасно отправить вызов на дуэль
+      if (challengePendingUid && window.Account) {
+        Account.sendChallenge(challengePendingUid, NET.code);
+        challengePendingUid = null;
+      }
     });
     peer.on("connection", function (c) {
       c.on("open", function () {
@@ -283,10 +288,10 @@
     peer.on("error", function (err) {
       var t = err && err.type;
       if (t === "peer-unavailable") {
-        // хост мог как раз переподключаться к брокеру — одна повторная попытка
-        if (++attempts <= 1) {
+        // хост мог ещё регистрироваться у брокера (особенно при вызове на дуэль) — несколько попыток
+        if (++attempts <= 4) {
           $("#online-join-status").textContent = T("retrying");
-          setTimeout(tryConnect, 1200);
+          setTimeout(tryConnect, 1300);
         } else {
           $("#online-join-status").textContent = T("roomNotFound");
         }
@@ -810,12 +815,13 @@
   }
   // вызов на дуэль с доски лидеров: хостим комнату и шлём вызов выбранному игроку
   var pendingChallenge = null;
+  var challengePendingUid = null;   // кому отправить вызов, когда комната реально откроется
   function challengeFlow(uid, nick) {
     if (!(window.Account && Account.isIn()) || !uid || uid === Account.uid()) return;
     stopTimer(); G = null;
+    challengePendingUid = uid;       // отправим вызов в peer.on("open"), когда комната зарегистрируется у брокера
     openOnline();
     hostRoom();
-    Account.sendChallenge(uid, NET.code);
     $("#lobby-status").textContent = T("waitingAccept", nick || "");
   }
 

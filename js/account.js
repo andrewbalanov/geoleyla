@@ -258,12 +258,15 @@ window.Account = (function () {
     if (profile) {
       profile.totalScore = (profile.totalScore || 0) + pts;
       profile.games = (profile.games || 0) + 1;
-      if (mode) { profile.modes = profile.modes || {}; profile.modes[mode] = (profile.modes[mode] || 0) + pts; }
+      if (mode) {
+        profile.modes = profile.modes || {}; profile.modes[mode] = (profile.modes[mode] || 0) + pts;
+        profile.modeGames = profile.modeGames || {}; profile.modeGames[mode] = (profile.modeGames[mode] || 0) + 1;
+      }
       notify();
     }
-    // set+merge с вложенным increment — начислит и общие очки, и очки по режиму, даже если поля ещё нет
+    // set+merge с вложенным increment — начислит общие очки/игры и очки+игры по режиму, даже если поля ещё нет
     var upd = { totalScore: inc(pts), games: inc(1) };
-    if (mode) { upd.modes = {}; upd.modes[mode] = inc(pts); }
+    if (mode) { upd.modes = {}; upd.modes[mode] = inc(pts); upd.modeGames = {}; upd.modeGames[mode] = inc(1); }
     lbCache = null; // сбросить кэш рейтинга — после игры показать свежие очки
     return db.collection("users").doc(user.uid).set(upd, { merge: true }).catch(function () {});
   }
@@ -292,8 +295,9 @@ window.Account = (function () {
         var v = r.v;
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         if (score <= 0) return; // пустые/без очков в этом режиме не показываем
+        var games = byMode ? ((v.modeGames && v.modeGames[mode]) || 0) : (v.games || 0);
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
-        rows.push({ uid: r.uid, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null, online: on });
+        rows.push({ uid: r.uid, nick: v.nick, score: score, games: games, photo: v.photo || null, online: on });
       });
       rows.sort(function (a, b) { return b.score - a.score; });
       return rows.slice(0, 50);
