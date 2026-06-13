@@ -16,7 +16,7 @@ window.Account = (function () {
     "auth/requires-recent-login": "Для этого действия войдите заново",
     "permission-denied": "База данных закрыта правилами — вставьте правила Firestore (вкладка Rules)",
     "nick-taken": "Это имя уже занято",
-    "bad-nick": "Имя должно быть от 2 до 16 символов",
+    "bad-nick": "Имя должно быть от 3 до 16 символов",
     "auth/popup-blocked": "Браузер заблокировал окно входа — разрешите всплывающие окна",
     "auth/popup-closed-by-user": "Окно входа было закрыто",
     "auth/cancelled-popup-request": "Окно входа было закрыто",
@@ -35,7 +35,7 @@ window.Account = (function () {
     "auth/requires-recent-login": "Please sign in again to do this",
     "permission-denied": "The database is locked by security rules",
     "nick-taken": "This name is already taken",
-    "bad-nick": "The name must be 2–16 characters long",
+    "bad-nick": "The name must be 3–16 characters long",
     "auth/popup-blocked": "The browser blocked the sign-in window — allow pop-ups",
     "auth/popup-closed-by-user": "The sign-in window was closed",
     "auth/cancelled-popup-request": "The sign-in window was closed",
@@ -69,7 +69,8 @@ window.Account = (function () {
     } catch (e) { return false; }
   }
 
-  function loadProfile() {
+  function loadProfile(attempt) {
+    attempt = attempt || 0;
     var uid = user.uid;
     function deflt() { return { nick: user.displayName || "Игрок", totalScore: 0, games: 0, lang: "ru" }; }
     function apply(s) {
@@ -78,12 +79,17 @@ window.Account = (function () {
       return false;
     }
     // source:"server" — полный документ с сервера, а не частичный кэш SDK.
-    // Кэш портит merge-запись online из startPresence: get() по умолчанию возвращал
-    // обрезанный {online}-документ → профиль приходил пустым (0 очков/0 игр в меню и пропадал из рейтинга).
     withTimeout(db.collection("users").doc(uid).get({ source: "server" }), 9000).then(function (s) {
-      if (!apply(s)) { profile = deflt(); notify(); }
+      if (apply(s)) return;
+      if (!profile) { profile = deflt(); notify(); }   // на сервере дока нет (новый игрок)
     }).catch(function () {
-      // сервер недоступен — пробуем кэш, и лишь потом дефолт (не обнуляем уже загруженный профиль зря)
+      // ранний запрос на входе может не успеть подняться — повторяем с сервера, а не хватаем кэш
+      // (иначе профиль приходил пустым → 0 очков/0 игр в меню)
+      if (attempt < 2 && user && user.uid === uid) {
+        setTimeout(function () { if (user && user.uid === uid) loadProfile(attempt + 1); }, 1500);
+        return;
+      }
+      // сервер так и не ответил — последний шанс из кэша, иначе дефолт (не обнуляя загруженное)
       db.collection("users").doc(uid).get({ source: "cache" }).then(function (s) {
         if (!apply(s) && !profile) { profile = deflt(); notify(); }
       }).catch(function () {
@@ -97,7 +103,7 @@ window.Account = (function () {
 
   function register(nick, email, pass, photo) {
     nick = (nick || "").trim();
-    if (nick.length < 2 || nick.length > 16) return Promise.reject({ code: "bad-nick" });
+    if (nick.length < 3 || nick.length > 16) return Promise.reject({ code: "bad-nick" });
     var key = nickKey(nick);
     return withTimeout(db.collection("nicks").doc(key).get(), 9000).then(function (s) {
       if (s.exists) throw { code: "nick-taken" };
@@ -154,7 +160,10 @@ window.Account = (function () {
   }
   function beat() {
     if (!user || !db) return;
-    db.collection("users").doc(user.uid).set({ online: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(function () {});
+    // update (а не set+merge!): не создаём «обрезанный» документ {online} до того, как
+    // профиль создан с ником/очками. Иначе ломались: имя Google-игроков (ensureProfile
+    // видел «доку существует» и не выдавал ник) и меню (грузился пустой профиль 0/0).
+    db.collection("users").doc(user.uid).update({ online: firebase.firestore.FieldValue.serverTimestamp() }).catch(function () {});
   }
   function stopPresence() {
     if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
@@ -184,29 +193,31 @@ window.Account = (function () {
   }
   function ensureProfile(u) {
     return withTimeout(db.collection("users").doc(u.uid).get(), 9000).then(function (s) {
-      if (s.exists) return;
-      var base = ((u.displayName || (u.email || "Игрок").split("@")[0]) + "").trim().slice(0, 14) || "Игрок";
-      return claimNick(base, 0, u);
+      var exists = s.exists, data = exists && s.data();
+      if (data && data.nick) return;   // профиль уже с ником — ничего не делаем
+      // ника нет: дока новая ИЛИ её обрезанной создал presence-beat. Имя берём из Google,
+      // иначе из заготовленного запасного имени по почте, иначе из префикса почты.
+      var fallback = NICK_OVERRIDE_EMAIL[(u.email || "").toLowerCase()];
+      var base = ((u.displayName || fallback || (u.email || "Игрок").split("@")[0]) + "").trim().slice(0, 14) || "Игрок";
+      return claimNick(base, 0, u, exists);   // exists → лечим (сохранить очки), иначе новый
     }).then(function () { loadProfile(); }).catch(function () { loadProfile(); });
   }
-  function claimNick(base, n, u) {
+  // healOnly=true — у дока уже есть очки, добавляем только ник (не обнуляя статистику)
+  function claimNick(base, n, u, healOnly) {
     var nick = n ? (base.slice(0, 14 - String(n).length) + n) : base;
     var key = nickKey(nick);
     return db.runTransaction(function (tx) {
       return tx.get(db.collection("nicks").doc(key)).then(function (s) {
         if (s.exists) throw { code: "nick-taken" };
         tx.set(db.collection("nicks").doc(key), { uid: u.uid });
-        tx.set(db.collection("users").doc(u.uid), {
-          nick: nick, nickLower: key, email: u.email || "", lang: "ru",
-          photo: u.photoURL || null, // аватар из Google
-          totalScore: 0, games: 0,
-          created: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        var data = { nick: nick, nickLower: key, email: u.email || "", photo: u.photoURL || null };
+        if (!healOnly) { data.lang = "ru"; data.totalScore = 0; data.games = 0; data.created = firebase.firestore.FieldValue.serverTimestamp(); }
+        tx.set(db.collection("users").doc(u.uid), data, { merge: true });
       });
     }).then(function () {
       return u.updateProfile({ displayName: nick });
     }).catch(function (e) {
-      if (e && e.code === "nick-taken" && n < 99) return claimNick(base, n + 1, u);
+      if (e && e.code === "nick-taken" && n < 99) return claimNick(base, n + 1, u, healOnly);
     });
   }
   function isGoogle() {
@@ -286,6 +297,17 @@ window.Account = (function () {
 
   // осиротевшие тест-аккаунты (auth удалён, документ обнулить уже нельзя) — прячем из рейтинга
   var SKIP_UIDS = { "EdXftNsdSlUdacOn3cqcpMBGJXC3": 1 };
+  // запасные имена для аккаунтов, оставшихся без ника. По UID — чтобы показать сразу: у этих
+  // доков нет даже email (их обрезанными создал старый presence-beat). По email — про запас:
+  // при следующем входе ник и email запишутся (настоящий из Google либо это же имя).
+  var NICK_OVERRIDE_UID = {
+    "4psAPjmVxiNGlCvWLXKECHfgH993": "Александр С.",     // tomsvsmr@gmail.com
+    "Gx75DeRbOnZ7dcR5P5UmZrsSXqc2": "Romariogro12"      // romariogro12@gmail.com
+  };
+  var NICK_OVERRIDE_EMAIL = { "tomsvsmr@gmail.com": "Александр С.", "romariogro12@gmail.com": "Romariogro12" };
+  function displayNick(uid, v) {
+    return (v && v.nick) || NICK_OVERRIDE_UID[uid] || (v && NICK_OVERRIDE_EMAIL[(v.email || "").toLowerCase()]) || null;
+  }
   // mode: null/"all" — общий рейтинг (totalScore); иначе — очки конкретного режима (modes[mode])
   // кэш сырых данных рейтинга: одно чтение базы на сессию просмотра, переключение
   // режимов считаем у себя (раньше каждый таб заново тянул 300 доков и иногда отваливался)
@@ -311,7 +333,7 @@ window.Account = (function () {
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         var games = byMode ? ((v.modeGames && v.modeGames[mode]) || 0) : (v.games || 0);
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
-        var row = { uid: r.uid, nick: v.nick, score: score, games: games, photo: v.photo || null, online: on };
+        var row = { uid: r.uid, nick: displayNick(r.uid, v), score: score, games: games, photo: v.photo || null, online: on };
         if (meUid && r.uid === meUid) { meServer = row; return; }   // себя добавим ниже — лучшее из источников
         if (score <= 0) return; // пустые/без очков в этом режиме не показываем
         rows.push(row);
