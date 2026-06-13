@@ -11,6 +11,57 @@
     return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
   }
 
+  // Разрезать кольца, пересекающие антимеридиан (±180), чтобы заливка не
+  // растягивалась полосами через всю карту (например Россия/Чукотка).
+  function cutAntimeridian(geometry) {
+    if (!geometry || (geometry.type !== "Polygon" && geometry.type !== "MultiPolygon")) return geometry;
+    function cutRing(ring) {
+      var out = [], cur = [];
+      for (var i = 0; i < ring.length; i++) {
+        var p = ring[i];
+        if (i > 0) {
+          var q = ring[i - 1];
+          if (Math.abs(p[0] - q[0]) > 180) { // сегмент пересекает шов
+            var pun = p[0] + (p[0] < q[0] ? 360 : -360);
+            var seam = q[0] > 0 ? 180 : -180;
+            var t = (seam - q[0]) / (pun - q[0]);
+            var lat = q[1] + t * (p[1] - q[1]);
+            cur.push([seam, lat]);
+            out.push(cur);
+            cur = [[-seam, lat]];
+          }
+        }
+        cur.push(p);
+      }
+      if (cur.length) out.push(cur);
+      // кольцо началось в середине куска — склеить первый и последний (одна сторона)
+      if (out.length > 1) {
+        var f = out[0], l = out[out.length - 1];
+        if ((f[0][0] > 0) === (l[l.length - 1][0] > 0)) { out[out.length - 1] = l.concat(f); out.shift(); }
+      }
+      return out.map(function (c) {
+        if (c.length && (c[0][0] !== c[c.length - 1][0] || c[0][1] !== c[c.length - 1][1])) c.push(c[0].slice());
+        return c;
+      }).filter(function (c) { return c.length >= 4; });
+    }
+    function ringSpan(r) { var xs = r.map(function (p) { return p[0]; }); return Math.max.apply(null, xs) - Math.min.apply(null, xs); }
+    function cutPolygon(poly) {
+      var res = [];
+      poly.forEach(function (ring, idx) {
+        if (ringSpan(ring) > 180) cutRing(ring).forEach(function (r) { res.push([r]); });
+        else if (idx === 0) res.push([ring]);
+        else if (res.length) res[res.length - 1].push(ring);
+        else res.push([ring]);
+      });
+      return res;
+    }
+    var out = [];
+    var polys = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+    polys.forEach(function (poly) { cutPolygon(poly).forEach(function (p) { out.push(p); }); });
+    if (out.length === 1) return { type: "Polygon", coordinates: out[0] };
+    return { type: "MultiPolygon", coordinates: out };
+  }
+
   function pinEl(color) {
     var d = document.createElement("div");
     d.className = "gm-pin";
@@ -51,26 +102,28 @@
     // слои игры зашиваются прямо в стиль — не нужно ждать события load
     var style = JSON.parse(JSON.stringify(config.style || window.MAP_STYLE));
     var regionsFC = { type: "FeatureCollection", features: this.features.map(function (f, i) {
-      return { type: "Feature", id: i, properties: {}, geometry: f.geometry };
+      return { type: "Feature", id: i, properties: {}, geometry: cutAntimeridian(f.geometry) };
     }) };
     style.sources.regions = { type: "geojson", data: regionsFC };
     style.sources.arcs = { type: "geojson", data: { type: "FeatureCollection", features: [] } };
     var ST = function (name) { return ["boolean", ["feature-state", name], false]; };
+    // green — верный ответ (угадал), yellow — верный ответ, но игрок промахнулся,
+    // wrong — куда указал ошибочно, sel — выбор до подтверждения
     if (config.regions) {
       style.layers.push({
         id: "regions-fill", type: "fill", source: "regions",
         paint: {
           "fill-color": ["case",
-            ST("answer"), "#3cb84d",
+            ST("green"), "#3cb84d",
+            ST("yellow"), "#f0c93a",
             ST("wrong"), "#e15b5b",
             ST("sel"), "#5b9bd5",
-            ST("found"), "#79ca7f",
             "#ffffff"],
           "fill-opacity": ["case",
-            ST("answer"), 0.78,
+            ST("green"), 0.78,
+            ST("yellow"), 0.74,
             ST("wrong"), 0.62,
             ST("sel"), 0.65,
-            ST("found"), 0.7,
             0.85]
         }
       });
@@ -79,29 +132,30 @@
         paint: { "line-color": "#8e9aa0", "line-width": 1.1 }
       });
     } else {
-      // мир/terrain: заливка видна только для ответа/промаха/найденных
+      // мир/terrain: заливка видна только для верного/жёлтого/промаха
       style.layers.push({
         id: "regions-fill", type: "fill", source: "regions",
         paint: {
           "fill-color": ["case",
-            ST("answer"), "#3cb84d",
+            ST("green"), "#3cb84d",
+            ST("yellow"), "#f0c93a",
             ST("wrong"), "#e15b5b",
             ST("sel"), "#5b9bd5",
             "#79ca7f"],
           "fill-opacity": ["case",
-            ST("answer"), 0.62,
+            ST("green"), 0.62,
+            ST("yellow"), 0.6,
             ST("wrong"), 0.62,
             ST("sel"), 0.45,
-            ST("found"), 0.55,
             0]
         }
       });
       style.layers.push({
         id: "regions-line", type: "line", source: "regions",
         paint: {
-          "line-color": ["case", ST("wrong"), "#8e2f2f", "#1d7c2c"],
+          "line-color": ["case", ST("wrong"), "#8e2f2f", ST("yellow"), "#9c7a17", "#1d7c2c"],
           "line-width": 2.4,
-          "line-opacity": ["case", ST("answer"), 0.95, ST("wrong"), 0.85, ST("found"), 0.7, 0]
+          "line-opacity": ["case", ST("green"), 0.95, ST("yellow"), 0.9, ST("wrong"), 0.85, 0]
         }
       });
     }
@@ -231,15 +285,6 @@
     });
   };
 
-  GeoMap.prototype.highlightCountry = function (fid) {
-    var self = this;
-    this.answerFid = fid;
-    this._whenReady(function () {
-      self.map.setFeatureState({ source: "regions", id: fid }, { answer: true });
-    });
-  };
-
-  // регион остаётся зелёным до конца матча
   // подсветка области под кликом до подтверждения (null — снять)
   GeoMap.prototype.markSel = function (fid) {
     var self = this;
@@ -272,11 +317,21 @@
       : this._defaultHome;
   };
 
-  GeoMap.prototype.markFound = function (fid) {
+  // верный ответ, угадан игроком — зелёный до конца матча
+  GeoMap.prototype.markCorrect = function (fid) {
     var self = this;
-    this.found[fid] = 1;
+    this.found[fid] = "green";
     this._whenReady(function () {
-      self.map.setFeatureState({ source: "regions", id: fid }, { found: true });
+      self.map.setFeatureState({ source: "regions", id: fid }, { green: true, yellow: false });
+    });
+  };
+  // верный ответ, но игрок промахнулся — жёлтый до конца матча
+  GeoMap.prototype.markMissed = function (fid) {
+    var self = this;
+    if (this.found[fid] === "green") return; // уже угадан — оставляем зелёным
+    this.found[fid] = "yellow";
+    this._whenReady(function () {
+      self.map.setFeatureState({ source: "regions", id: fid }, { yellow: true });
     });
   };
   GeoMap.prototype.clearFound = function () {
@@ -285,7 +340,7 @@
     this.found = {};
     this._whenReady(function () {
       ids.forEach(function (id) {
-        self.map.setFeatureState({ source: "regions", id: +id }, { found: false });
+        self.map.setFeatureState({ source: "regions", id: +id }, { green: false, yellow: false });
       });
     });
   };
@@ -301,10 +356,6 @@
     this._whenReady(function () {
       var src = self.map.getSource("arcs");
       if (src) src.setData({ type: "FeatureCollection", features: [] });
-      if (self.answerFid != null) {
-        self.map.setFeatureState({ source: "regions", id: self.answerFid }, { answer: false });
-        self.answerFid = null;
-      }
       wrongs.forEach(function (fid) {
         self.map.setFeatureState({ source: "regions", id: fid }, { wrong: false });
       });

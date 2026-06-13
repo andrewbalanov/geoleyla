@@ -110,7 +110,7 @@ window.I18N = (function () {
       resetSent: "✉️ Письмо для сброса пароля отправлено на {0}",
       openingGoogle: "⏳ Открываем окно Google…", waitSec: "⏳ Секунду…",
       yourPhoto: "Фото игрока (необязательно)", photoLabel: "Фото игрока",
-      profTitle: "👤 Мой профиль", nickLabel: "Имя игрока", changeNick: "Сменить имя",
+      profTitle: "⚙️ Настройки", settingsTitle: "Настройки профиля", nickLabel: "Имя игрока", changeNick: "Сменить имя",
       langLabel: "Язык игры", changePass: "Смена пароля", curPass: "Текущий пароль",
       newPass: "Новый пароль (от 6 символов)", changePassBtn: "Сменить пароль",
       changeEmail: "Смена email", newEmail: "Новый email", changeEmailBtn: "Сменить email",
@@ -230,7 +230,7 @@ window.I18N = (function () {
       resetSent: "✉️ Password reset email sent to {0}",
       openingGoogle: "⏳ Opening Google window…", waitSec: "⏳ One second…",
       yourPhoto: "Player photo (optional)", photoLabel: "Player photo",
-      profTitle: "👤 My profile", nickLabel: "Player name", changeNick: "Change name",
+      profTitle: "⚙️ Settings", settingsTitle: "Profile settings", nickLabel: "Player name", changeNick: "Change name",
       langLabel: "Game language", changePass: "Change password", curPass: "Current password",
       newPass: "New password (6+ characters)", changePassBtn: "Change password",
       changeEmail: "Change email", newEmail: "New email", changeEmailBtn: "Change email",
@@ -258,6 +258,7 @@ window.I18N = (function () {
     flagquiz:  { name: "Flags", desc: "Pick the right flag out of three" },
     places:    { name: "Famous Places", desc: "Lakes, falls, islands — by photo" },
     monuments: { name: "World Monuments", desc: "Famous landmarks — by photo" },
+    history:   { name: "Historic Events", desc: "Where did it happen? Battles, discoveries, eras" },
     mix:       { name: "Mix", desc: "Everything shuffled" },
     wineworld: { name: "Wine Regions of the World", desc: "Legendary terroirs + sommelier cards" },
     winefrance:{ name: "Wine Regions of France", desc: "From Champagne to Provence + sommelier cards" }
@@ -280,7 +281,10 @@ window.I18N = (function () {
     "город инков": "Inca city", "театр": "theatre", "небоскрёб": "skyscraper",
     "небоскрёбы": "skyscrapers", "собор-мечеть": "cathedral-mosque", "мегалит": "megalith",
     "замок": "castle", "аббатство": "abbey", "крепость": "fortress", "святыня": "shrine",
-    "надпись": "sign", "площадь": "square"
+    "надпись": "sign", "площадь": "square",
+    "битва": "battle", "открытие": "discovery", "катастрофа": "disaster",
+    "наука": "science", "политика": "politics", "древний мир": "antiquity",
+    "космос": "space", "событие": "event"
   };
 
   var lang = "ru";

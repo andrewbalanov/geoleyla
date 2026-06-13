@@ -17,7 +17,18 @@
     flagquiz:  { icon: "🚩", name: "Флаги",           desc: "Выбери правильный флаг из трёх",    diff: false, map: null,     pos: [10, 66], rot: -3, col: "y", region: true },
     places:    { icon: "🏞️", name: "Известные места", desc: "Озёра, водопады, острова — по фото", diff: false, map: "world", pos: [27, 79], rot: 2,  col: "r" },
     monuments: { icon: "🗽", name: "Памятники мира",  desc: "Знаменитые сооружения — по фото",   diff: false, map: "world",  pos: [68, 48], rot: 3,  col: "y" },
+    history:   { icon: "📜", name: "Исторические события", desc: "Где это произошло? Битвы, открытия, эпохи", diff: false, map: "world", pos: [40, 60], rot: -3, col: "r" },
     mix:       { icon: "🎲", name: "Микс",            desc: "Всё вперемешку",                    diff: true,  map: "world",  pos: [82, 72], rot: -2, col: "r" }
+  };
+  // категории исторических событий: иконка + русская подпись (chip)
+  var HIST_CAT = {
+    battle:    { icon: "⚔️", ru: "битва" },
+    discovery: { icon: "🧭", ru: "открытие" },
+    disaster:  { icon: "🌋", ru: "катастрофа" },
+    science:   { icon: "🔬", ru: "наука" },
+    politics:  { icon: "🏛️", ru: "политика" },
+    ancient:   { icon: "🏺", ru: "древний мир" },
+    space:     { icon: "🚀", ru: "космос" }
   };
   var PHOTOS = window.PHOTOS || {};
   var SEAS_TYPES = { "море": 1, "залив": 1, "пролив": 1, "канал": 1, "озеро-море": 1, "гора": 1, "горы": 1, "вулкан": 1, "мыс": 1, "риф": 1, "фьорд": 1, "пустыня": 1 };
@@ -570,6 +581,13 @@
       img: PHOTOS[m.img] ? "assets/places/" + PHOTOS[m.img] : (m.photo || null),
       target: [m.lng, m.lat], r: m.r, reveal: m.name };
   }
+  function qHistory(h) {
+    var cat = HIST_CAT[h.cat] || { icon: "📜", ru: "событие" };
+    return { kind: "point", mode: "history", title: h.name, chip: cat.ru,
+      sub: h.en, revealSub: h.en, slug: h.img, hist: h,
+      img: h.photo || null,
+      target: [h.lng, h.lat], r: h.r || 130, reveal: h.name };
+  }
   function qWine(w, mode) {
     var wi = ((window.INFO || {}).wine || {})[w.img];
     var img = wi && wi.img ? (/^https?:/.test(wi.img) ? wi.img : "assets/info/" + wi.img) : null;
@@ -609,6 +627,7 @@
     else if (mode === "places") qs = shuffle(window.PLACES.filter(function (p) { return !SEAS_TYPES[p.type]; })).map(function (p) { return qPlace(p); });
     else if (mode === "seas") qs = shuffle(window.PLACES.filter(function (p) { return SEAS_TYPES[p.type]; })).map(function (p) { return qPlace(p, "seas"); });
     else if (mode === "monuments") qs = shuffle(window.MONUMENTS).map(qMonument);
+    else if (mode === "history") qs = shuffle(window.HISTORY || []).map(qHistory);
     else if (mode === "france") qs = qRegions("france", "департамент", 110);
     else if (mode === "usa") qs = qRegions("usa", "штат", 450);
     else if (mode === "wineworld") qs = shuffle(window.WINE_WORLD || []).map(function (w) { return qWine(w, "wineworld"); });
@@ -1141,6 +1160,7 @@
         ans.d = cur().distanceToCountry(G.guess, q.fid);
         ans.pts = scoreCountry(ans.d, q.decay);
         var hitFid = cur().countryAt(G.guess);
+        ans.correctRegion = (hitFid === q.fid); // указал точно в нужный регион
         if (hitFid != null && hitFid !== q.fid) {
           ans.hitFid = hitFid;
           var hf = cur().features[hitFid];
@@ -1254,8 +1274,11 @@
   function revealMap(q) {
     var m = cur();
     if (q.kind === "country") {
-      m.highlightCountry(q.fid);
-      m.markFound(q.fid);
+      // верный регион: зелёный если кто-то угадал точно, иначе жёлтый (промах) — до конца игры
+      var anyRight = G.players.some(function (p) {
+        var a = p.answers[G.qIndex]; return a && a.correctRegion;
+      });
+      if (anyRight) m.markCorrect(q.fid); else m.markMissed(q.fid);
     }
     m.addTarget("answer", q.target);
     G.players.forEach(function (p, i) {
@@ -1359,6 +1382,14 @@
         sub: en ? pr.name : pr.orig,
         text: et || d.t };
     }
+    if (q.hist) {
+      var h = q.hist;
+      return { img: h.photo || null,
+        title: en ? h.en : h.name,
+        sub: en ? h.name : h.en,
+        text: (en && h.infoEn) ? h.infoEn : (h.info || ""),
+        hist: h };
+    }
     if (q.slug) {
       var bucket = q.mode === "monuments" ? I.monuments : I.places;
       var t = enInfo(q.mode === "monuments" ? "monuments" : "places", q.slug) ||
@@ -1372,6 +1403,39 @@
     return null;
   }
 
+  // эпоха по году
+  function histEra(year) {
+    var en = I18N.lang() === "en";
+    if (year < -800) return en ? "Ancient world" : "Древний мир";
+    if (year < 476) return en ? "Antiquity" : "Античность";
+    if (year < 1492) return en ? "Middle Ages" : "Средние века";
+    if (year < 1789) return en ? "Early Modern" : "Новое время";
+    if (year < 1914) return en ? "Modern era" : "Новое время";
+    return en ? "Contemporary" : "Новейшее время";
+  }
+  function histYearLabel(year) {
+    var en = I18N.lang() === "en";
+    return year < 0 ? Math.abs(year) + (en ? " BC" : " до н.э.") : String(year);
+  }
+  // таймлайн-инфографика: положение события на оси −3000…2050
+  function histTimeline(year) {
+    var x0 = -3000, x1 = 2050, W = 320, pad = 14;
+    function px(y) { return pad + (Math.max(x0, Math.min(x1, y)) - x0) / (x1 - x0) * (W - 2 * pad); }
+    var eras = [[-3000, "#7a5cff"], [-800, "#c9a227"], [476, "#3c9bd6"], [1492, "#3cb84d"], [1789, "#e08a3c"], [1914, "#e15b5b"], [2050]];
+    var segs = "";
+    for (var i = 0; i < eras.length - 1; i++) {
+      segs += '<rect x="' + px(eras[i][0]) + '" y="20" width="' + (px(eras[i + 1][0]) - px(eras[i][0])) + '" height="9" fill="' + eras[i][1] + '" opacity="0.55"/>';
+    }
+    var mx = px(year);
+    return '<svg viewBox="0 0 320 50" width="100%" height="50">' + segs +
+      '<rect x="' + pad + '" y="20" width="' + (W - 2 * pad) + '" height="9" rx="4.5" fill="none" stroke="#7c6116" stroke-width="0.6"/>' +
+      '<line x1="' + mx + '" y1="14" x2="' + mx + '" y2="35" stroke="#7d2433" stroke-width="2"/>' +
+      '<circle cx="' + mx + '" cy="24.5" r="6.5" fill="#ff5fa2" stroke="#fff" stroke-width="2"/>' +
+      '<text x="' + pad + '" y="46" fill="#7d6a3a" font-size="9">3000 ' + (I18N.lang() === "en" ? "BC" : "до н.э.") + '</text>' +
+      '<text x="' + (W - pad) + '" y="46" fill="#7d6a3a" font-size="9" text-anchor="end">2050</text>' +
+      '<text x="' + mx + '" y="11" fill="#5e1825" font-size="11" font-weight="800" text-anchor="middle">' + esc(histYearLabel(year)) + '</text></svg>';
+  }
+
   function showCard(q) {
     var d = getCardData(q);
     if (!d) return false;
@@ -1383,6 +1447,23 @@
     var cap = $("#card-cap");
     cap.textContent = d.cap || "";
     cap.style.display = d.cap ? "" : "none";
+    // историческая инфографика: год · эпоха · категория + таймлайн
+    var hb = $("#card-hist");
+    if (d.hist) {
+      var c = HIST_CAT[d.hist.cat] || { icon: "📜", ru: "событие" };
+      var catLabel = I18N.lang() === "en" ? I18N.typeOf(c.ru) : c.ru;
+      hb.style.display = "";
+      hb.innerHTML =
+        '<div class="hist-chips">' +
+          '<span class="hist-year">' + esc(histYearLabel(d.hist.year)) + "</span>" +
+          '<span class="hist-era">' + esc(histEra(d.hist.year)) + "</span>" +
+          '<span class="hist-cat">' + c.icon + " " + esc(catLabel) + "</span>" +
+        "</div>" +
+        '<div class="hist-timeline">' + histTimeline(d.hist.year) + "</div>";
+    } else {
+      hb.style.display = "none";
+      hb.innerHTML = "";
+    }
     $("#card-text").textContent = d.text || "";
     var wl = $("#card-wines");
     if (d.wines) {
@@ -1584,6 +1665,7 @@
     document.documentElement.lang = I18N.lang();
     $$("[data-i18n]").forEach(function (el) { el.innerHTML = T(el.getAttribute("data-i18n")); });
     $$("[data-i18n-ph]").forEach(function (el) { el.placeholder = T(el.getAttribute("data-i18n-ph")); });
+    $$("[data-i18n-title]").forEach(function (el) { el.title = T(el.getAttribute("data-i18n-title")); });
     $$("#btn-lang, #btn-welcome-lang").forEach(function (lb) {
       lb.textContent = I18N.lang().toUpperCase();
     });
@@ -1609,20 +1691,9 @@
     }
     var p = Account.profile() || {};
     var ava = Account.photo() ? '<img class="av" src="' + Account.photo() + '" alt="">' : "👤";
-    box.innerHTML = '<button class="account-btn in" id="btn-open-profile">' + ava + ' <b>' + esc(Account.nick() || "Игрок") +
-      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " " + T("pts") + " · " + T("games") + ": " + (p.games || 0) + "</span></button>" +
-      '<div class="account-actions">' +
-        '<button id="btn-acc-profile">⚙️ ' + T("profileBtn") + "</button>" +
-        '<button id="btn-acc-leaders">🏆 ' + T("ratingBtn") + "</button>" +
-        '<button id="btn-acc-logout">🚪 ' + T("signOut") + "</button>" +
-      "</div>";
-    $("#btn-open-profile").onclick = openProfile;
-    $("#btn-acc-profile").onclick = openProfile;
-    $("#btn-acc-leaders").onclick = openLeaders;
-    $("#btn-acc-logout").onclick = function () {
-      if (!confirm(T("logoutQ"))) return;
-      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
-    };
+    // имя профиля — просто карточка-плашка, не кнопка (настройки/выход — в нижней панели)
+    box.innerHTML = '<div class="account-btn in static">' + ava + ' <b>' + esc(Account.nick() || "Игрок") +
+      "</b><span>🏆 " + (p.totalScore || 0).toLocaleString("ru-RU") + " " + T("pts") + " · " + T("games") + ": " + (p.games || 0) + "</span></div>";
   }
   window.__renderAccountBox = renderAccountBox;
 
@@ -2088,6 +2159,13 @@
     };
     $("#btn-trophy").onclick = openLeaders;
     $("#btn-info").onclick = function () { $("#overlay-info").classList.add("show"); };
+    // настройки профиля и выход — в нижней панели меню
+    $("#btn-settings").onclick = function () { if (window.Account && Account.isIn()) openProfile(); else openAuth(); };
+    $("#btn-logout-corner").onclick = function () {
+      if (!(window.Account && Account.isIn())) return;
+      if (!confirm(T("logoutQ"))) return;
+      Account.logout().then(function () { revealWelcome(); showScreen("screen-welcome"); });
+    };
     $$(".overlay-card .btn-close").forEach(function (b) {
       b.onclick = function () { b.closest(".overlay").classList.remove("show"); };
     });

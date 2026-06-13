@@ -233,7 +233,11 @@ button:disabled { opacity: 0.55; cursor: default; }
   font-size: 14px; font-weight: 800; padding: 8px 18px;
 }
 .account-btn.in span { color: var(--gold-soft); font-size: 12.5px; font-weight: 700; }
-.account-btn:hover { border-color: var(--gold); }
+.account-btn:not(.static):hover { border-color: var(--gold); }
+.account-btn.static { cursor: default; }
+/* кнопка «Выйти» в нижней панели — красноватый акцент */
+.glass-logout { border-color: rgba(225, 91, 91, 0.5); color: #ff9b9b; }
+.glass-logout:hover { border-color: #e15b5b; background: radial-gradient(circle at 32% 28%, #4a2222, #2a1414); }
 /* ===================== РЕЙТИНГ КЛУБА ===================== */
 .leaders-inner {
   width: min(840px, 100%); margin: 0 auto;
@@ -332,7 +336,7 @@ button:disabled { opacity: 0.55; cursor: default; }
 #leaders-table th.lb-score { text-align: right; }
 #leaders-table .lb-games { text-align: right; width: 70px; color: var(--cream-dim); }
 #leaders-table th.lb-games { text-align: right; }
-#leaders-table img.av, #leaders-table .gen-av { width: 34px; height: 34px; font-size: 16px; }
+#leaders-table img.av, #leaders-table .gen-av { width: 34px; height: 34px; font-size: 16px; margin: 0; vertical-align: middle; flex: none; }
 #leaders-table tr.me td { color: var(--pink-soft); font-weight: 900; }
 #leaders-table tr.me .lb-score { color: var(--pink-soft); }
 #leaders-table tr.top1 td { background: rgba(232, 205, 128, 0.10); }
@@ -371,7 +375,6 @@ img.av {
 }
 .score-chip img.av { width: 20px; height: 20px; margin-right: 2px; border-color: var(--pc); vertical-align: middle; }
 .account-btn img.av { width: 26px; height: 26px; }
-#leaders-table img.av { width: 24px; height: 24px; }
 .avatar-row { align-items: flex-start; }
 .avatar-pick {
   width: 84px; height: 84px; border-radius: 50%; overflow: hidden;
@@ -955,6 +958,23 @@ img.av {
   color: #7d2433;
 }
 .infocard p#card-text { color: #3c3120; font-size: 14.5px; line-height: 1.55; }
+/* инфографика исторических событий */
+.card-hist { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 2px; }
+.hist-chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center; }
+.hist-year {
+  font-family: var(--serif); font-weight: 900; font-size: 19px; color: #5e1825;
+  background: linear-gradient(180deg, #f3e6c4, #e3c87a); border: 1px solid #b9985c;
+  border-radius: 8px; padding: 2px 12px;
+}
+.hist-era, .hist-cat {
+  font-size: 12.5px; font-weight: 800; padding: 4px 11px; border-radius: 999px;
+}
+.hist-era { background: rgba(125, 36, 51, 0.1); color: #7d2433; border: 1px solid rgba(125, 36, 51, 0.3); }
+.hist-cat { background: rgba(43, 74, 58, 0.1); color: #2b4a3a; border: 1px solid rgba(43, 74, 58, 0.3); }
+.hist-timeline {
+  background: rgba(0, 0, 0, 0.04); border: 1px solid #d8c79a; border-radius: 10px;
+  padding: 6px 8px 2px;
+}
 .card-wines-h {
   font-family: var(--serif); font-weight: 700; font-size: 17px; color: #5e1825;
   margin: 6px 0 2px; text-align: center;
