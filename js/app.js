@@ -223,6 +223,7 @@
     $("#lobby-code").textContent = "· · · ·";
     $("#lobby-status").textContent = T("creating");
     renderLobby();
+    updateChatVisibility();   // чат — сразу при создании комнаты, не дожидаясь гостя/режима
     var peer = NET.peer = new Peer("gmleyla-" + NET.code, { debug: 0 });
     peer.on("open", function () {
       $("#lobby-code").textContent = NET.code.split("").join(" ");
