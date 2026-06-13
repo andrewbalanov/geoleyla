@@ -1287,6 +1287,13 @@ img.av {
 }
 #overlay-notice .confirm-card { text-align: center; }
 #overlay-notice .btn-big { width: auto; min-width: 130px; margin: 2px auto 0; }
+
+/* версия игры — внизу слева в меню */
+.app-version {
+  position: absolute; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 3;
+  font: 700 11px "Nunito", sans-serif; color: var(--cream-dim); opacity: 0.5;
+  letter-spacing: 0.4px; pointer-events: none; user-select: none;
+}
 @media (max-width: 560px) {
   .lb-duel span { display: none; }     /* на узких экранах только иконка ⚔ */
   .lb-duel { margin-left: 6px; padding: 4px 9px; font-size: 14px; }

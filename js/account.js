@@ -264,30 +264,42 @@ window.Account = (function () {
     // set+merge с вложенным increment — начислит и общие очки, и очки по режиму, даже если поля ещё нет
     var upd = { totalScore: inc(pts), games: inc(1) };
     if (mode) { upd.modes = {}; upd.modes[mode] = inc(pts); }
+    lbCache = null; // сбросить кэш рейтинга — после игры показать свежие очки
     return db.collection("users").doc(user.uid).set(upd, { merge: true }).catch(function () {});
   }
 
   // осиротевшие тест-аккаунты (auth удалён, документ обнулить уже нельзя) — прячем из рейтинга
   var SKIP_UIDS = { "EdXftNsdSlUdacOn3cqcpMBGJXC3": 1 };
   // mode: null/"all" — общий рейтинг (totalScore); иначе — очки конкретного режима (modes[mode])
+  // кэш сырых данных рейтинга: одно чтение базы на сессию просмотра, переключение
+  // режимов считаем у себя (раньше каждый таб заново тянул 300 доков и иногда отваливался)
+  var lbCache = null, lbCacheTs = 0;
+  function lbFetch() {
+    return withTimeout(db.collection("users").limit(300).get(), 13000).then(function (snap) {
+      var raw = [];
+      snap.forEach(function (d) { if (!SKIP_UIDS[d.id]) raw.push({ uid: d.id, v: d.data() }); });
+      lbCache = raw; lbCacheTs = Date.now();
+      return raw;
+    });
+  }
   function leaderboard(mode) {
     var byMode = mode && mode !== "all";
-    function parse(snap) {
+    function parse(raw) {
       var rows = [];
-      snap.forEach(function (d) {
-        if (SKIP_UIDS[d.id]) return;
-        var v = d.data();
+      raw.forEach(function (r) {
+        var v = r.v;
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         if (score <= 0) return; // пустые/без очков в этом режиме не показываем
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
-        rows.push({ uid: d.id, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null, online: on });
+        rows.push({ uid: r.uid, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null, online: on });
       });
       rows.sort(function (a, b) { return b.score - a.score; });
       return rows.slice(0, 50);
     }
-    // тянем всех и сортируем у себя — не нужен индекс на каждый режим (база небольшая)
-    return withTimeout(db.collection("users").limit(300).get(), 12000).then(parse);
+    if (lbCache && Date.now() - lbCacheTs < 60000) return Promise.resolve(parse(lbCache)); // свежий кэш — без обращения к базе
+    return lbFetch().then(parse).catch(function () { return lbFetch().then(parse); });     // одна повторная попытка при сбое
   }
+  function invalidateLeaderboard() { lbCache = null; }
 
   return {
     init: init,
