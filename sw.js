@@ -1,6 +1,6 @@
 /* Service worker: network-first, чтобы обновления приходили сразу,
    а офлайн — отдаём из кэша. Делает игру устанавливаемой как приложение. */
-var CACHE = "geoclub-v7";
+var CACHE = "geoclub-v8";
 
 self.addEventListener("install", function (e) {
   self.skipWaiting();

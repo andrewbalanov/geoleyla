@@ -4,7 +4,7 @@
 
   // ---------- Константы ----------
   var PLAYER_COLORS = ["#ff5fa2", "#29c5e6", "#e8cd80", "#7ee08b"];
-  var GAME_VERSION = "2.5.7";   // версия игры (показывается в меню снизу слева)
+  var GAME_VERSION = "2.5.8";   // версия игры (показывается в меню снизу слева)
   // pos: [left%, top%] таблички в меню, rot — наклон, col — цвет
   var MODES = {
     capitals:  { icon: "🏛️", name: "Столицы мира",    desc: "Найди столицу на карте",            diff: true,  map: "world",  pos: [8, 12],  rot: -2, col: "y" },
@@ -2215,9 +2215,9 @@
             : "";
           return '<tr class="' + cls + '">' +
             '<td class="lb-rank">' + (medals[i] ? medals[i] + " " : "") + (i + 1) + "</td>" +
-            '<td class="lb-player">' + avatarOf(r, "av") +
+            '<td class="lb-player"><div class="lb-player-in">' + avatarOf(r, "av") +
               (on ? '<span class="lb-dot" title="' + T("onlineNow") + '"></span>' : "") +
-              "<span class='lb-nick'>" + esc(r.nick || "—") + "</span>" + duel + "</td>" +
+              "<span class='lb-nick'>" + esc(r.nick || "—") + "</span>" + duel + "</div></td>" +
             '<td class="lb-score">' + (r.score || 0).toLocaleString("ru-RU") + "</td>" +
             '<td class="lb-games">' + (r.games > 0 ? r.games : "—") + "</td></tr>";
         }).join("");
