@@ -62,8 +62,8 @@ window.Account = (function () {
       db = firebase.firestore();
       auth.onAuthStateChanged(function (u) {
         user = u;
-        if (u) loadProfile();
-        else { profile = null; notify(); }
+        if (u) { loadProfile(); startPresence(); }
+        else { stopPresence(); profile = null; notify(); }
       });
       return true;
     } catch (e) { return false; }
@@ -112,7 +112,54 @@ window.Account = (function () {
   }
 
   function login(email, pass) { return auth.signInWithEmailAndPassword(email, pass); }
-  function logout() { return auth.signOut(); }
+  function logout() { goOffline(); stopPresence(); return auth.signOut(); }
+
+  // ---------- Присутствие онлайн + вызов на дуэль ----------
+  var beatTimer = null, chalUnsub = null, chalCb = null, seenChal = {};
+  function myNick() { return (profile && profile.nick) || (user && user.displayName) || "Игрок"; }
+  function myPhotoUrl() { return (profile && profile.photo) || (user && user.photoURL) || null; }
+  function startPresence() {
+    stopPresence();
+    if (!user || !db) return;
+    beat();
+    beatTimer = setInterval(beat, 30000);
+    try {
+      chalUnsub = db.collection("users").where("chal.to", "==", user.uid).onSnapshot(function (snap) {
+        snap.forEach(function (d) {
+          if (d.id === user.uid) return;
+          var c = (d.data() || {}).chal;
+          if (!c || !c.ts) return;
+          var ms = c.ts.toMillis ? c.ts.toMillis() : 0;
+          if (!ms || Date.now() - ms > 60000) return;          // протухший вызов игнорируем
+          var key = d.id + "|" + ms + "|" + (c.kind || "");
+          if (seenChal[key]) return;
+          seenChal[key] = 1;
+          if (chalCb) { try { chalCb({ fromUid: d.id, fromName: c.fromName, fromPhoto: c.fromPhoto || null, code: c.code || null, kind: c.kind || "invite" }); } catch (e) {} }
+        });
+      }, function () {});
+    } catch (e) {}
+  }
+  function beat() {
+    if (!user || !db) return;
+    db.collection("users").doc(user.uid).set({ online: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(function () {});
+  }
+  function stopPresence() {
+    if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
+    if (chalUnsub) { try { chalUnsub(); } catch (e) {} chalUnsub = null; }
+  }
+  function goOffline() {
+    if (user && db) db.collection("users").doc(user.uid).set({ online: 0 }, { merge: true }).catch(function () {});
+  }
+  function challengeMsg(toUid, kind, code) {
+    if (!user || !db) return Promise.resolve();
+    var c = { to: toUid, kind: kind, fromName: myNick(), fromPhoto: myPhotoUrl(), ts: firebase.firestore.FieldValue.serverTimestamp() };
+    if (code) c.code = code;
+    return db.collection("users").doc(user.uid).set({ chal: c }, { merge: true }).catch(function () {});
+  }
+  function clearChallenge() {
+    if (!user || !db) return Promise.resolve();
+    return db.collection("users").doc(user.uid).set({ chal: firebase.firestore.FieldValue.delete() }, { merge: true }).catch(function () {});
+  }
   function resetPassword(email) { return auth.sendPasswordResetEmail(email); }
 
   // ---- Вход через Google: при первом входе автоматически выдаём уникальный ник ----
@@ -232,7 +279,8 @@ window.Account = (function () {
         var v = d.data();
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         if (score <= 0) return; // пустые/без очков в этом режиме не показываем
-        rows.push({ uid: d.id, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null });
+        var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
+        rows.push({ uid: d.id, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null, online: on });
       });
       rows.sort(function (a, b) { return b.score - a.score; });
       return rows.slice(0, 50);
@@ -257,6 +305,11 @@ window.Account = (function () {
     resetPassword: resetPassword, changePassword: changePassword,
     changeEmail: changeEmail, changeNick: changeNick, setLang: setLang,
     addScore: addScore, leaderboard: leaderboard,
+    onChallenge: function (f) { chalCb = f; },
+    sendChallenge: function (toUid, code) { return challengeMsg(toUid, "invite", code); },
+    declineChallenge: function (toUid) { return challengeMsg(toUid, "decline"); },
+    clearChallenge: clearChallenge,
+    goOffline: goOffline,
     errText: errText,
     renderBox: function () { if (window.__renderAccountBox) window.__renderAccountBox(); }
   };

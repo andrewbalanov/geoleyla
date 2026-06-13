@@ -439,6 +439,25 @@
     </div>
   </div>
 </div>
+<!-- Входящий вызов на дуэль -->
+<div class="overlay" id="overlay-challenge">
+  <div class="overlay-card confirm-card">
+    <div class="chal-from" id="chal-from"></div>
+    <p class="confirm-text"><b id="chal-name"></b> <span data-i18n="challengesYou">вызывает тебя на дуэль!</span> ⚔️</p>
+    <div class="confirm-actions">
+      <button class="btn-big confirm-cancel" id="chal-decline" data-i18n="declineDuel">Отказать</button>
+      <button class="btn-big btn-orange" id="chal-accept" data-i18n="acceptDuel">Принять ⚔</button>
+    </div>
+  </div>
+</div>
+<!-- Короткое уведомление (отказ от дуэли и т.п.) -->
+<div class="overlay" id="overlay-notice">
+  <div class="overlay-card confirm-card">
+    <div class="confirm-emoji" id="notice-emoji">😔</div>
+    <p class="confirm-text" id="notice-text"></p>
+    <button class="btn-big btn-orange" id="notice-ok">OK</button>
+  </div>
+</div>
 <!-- Гайд: установка как приложение -->
 <div class="overlay" id="overlay-install">
   <div class="install-card">

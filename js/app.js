@@ -518,6 +518,7 @@
       if (pidIdx(pid) < 0) NET.players.push({ pid: pid, name: nm, photo: ph, ready: false });
       netSendTo(c, { t: "welcome", pid: pid, code: NET.code });
       broadcastLobby();
+      if (window.Account) Account.clearChallenge(); // вызов принят — гость зашёл
       Sound.place();
     } else if (msg.t === "ready") {
       var i = pidIdx(pid);
@@ -797,6 +798,23 @@
   function showScreen(id) {
     $$(".screen").forEach(function (s) { s.classList.toggle("active", s.id === id); });
     updateChatVisibility();
+  }
+
+  // короткое уведомление (отказ от дуэли и т.п.)
+  function noticeDialog(text, emoji) {
+    $("#notice-text").textContent = text;
+    $("#notice-emoji").textContent = emoji || "ℹ️";
+    $("#overlay-notice").classList.add("show");
+  }
+  // вызов на дуэль с доски лидеров: хостим комнату и шлём вызов выбранному игроку
+  var pendingChallenge = null;
+  function challengeFlow(uid, nick) {
+    if (!(window.Account && Account.isIn()) || !uid || uid === Account.uid()) return;
+    stopTimer(); G = null;
+    openOnline();
+    hostRoom();
+    Account.sendChallenge(uid, NET.code);
+    $("#lobby-status").textContent = T("waitingAccept", nick || "");
   }
 
   // стилизованное окно подтверждения вместо системного confirm()
@@ -2133,17 +2151,27 @@
       // полная таблица: все игроки по порядку с нумерацией
       var medals = { 0: "🥇", 1: "🥈", 2: "🥉" };
       $("#lb-table-wrap").style.display = "";
+      var canChallenge = !!(window.Account && Account.isIn());
       $("#leaders-table").innerHTML =
         "<tr><th class='lb-rank'>#</th><th class='lb-player'>" + T("playerW") + "</th><th class='lb-score'>" +
         T("scoreW") + "</th><th class='lb-games'>" + T("gamesW") + "</th></tr>" +
         rows.map(function (r, i) {
           var cls = (r.uid === me ? "me " : "") + (i < 3 ? "top" + (i + 1) : "");
+          var on = r.online && (Date.now() - r.online < 90000);
+          var duel = (on && canChallenge && r.uid !== me)
+            ? '<button class="lb-duel" data-uid="' + esc(r.uid) + '" data-nick="' + esc(r.nick || "") + '" title="' + T("duelBtn") + '">⚔ <span>' + T("duelBtn") + "</span></button>"
+            : "";
           return '<tr class="' + cls + '">' +
             '<td class="lb-rank">' + (medals[i] ? medals[i] + " " : "") + (i + 1) + "</td>" +
-            '<td class="lb-player">' + avatarOf(r, "av") + "<span>" + esc(r.nick || "—") + "</span></td>" +
+            '<td class="lb-player">' + avatarOf(r, "av") +
+              (on ? '<span class="lb-dot" title="' + T("onlineNow") + '"></span>' : "") +
+              "<span class='lb-nick'>" + esc(r.nick || "—") + "</span>" + duel + "</td>" +
             '<td class="lb-score">' + (r.score || 0).toLocaleString("ru-RU") + "</td>" +
             '<td class="lb-games">' + r.games + "</td></tr>";
         }).join("");
+      $$("#leaders-table .lb-duel").forEach(function (b) {
+        b.onclick = function () { challengeFlow(b.getAttribute("data-uid"), b.getAttribute("data-nick")); };
+      });
     }).catch(function (e) {
       $("#leaders-status").textContent = "⚠️ " + Account.errText(e);
     });
@@ -2536,6 +2564,7 @@
         if (NET.isHost) broadcast({ t: "closed" });
         else netSend({ t: "bye" });
       }
+      if (window.Account && Account.isIn()) Account.goOffline();
     });
     // вкладка проснулась (телефон разблокировали) — вернуть связь с брокером
     document.addEventListener("visibilitychange", function () {
@@ -2563,7 +2592,39 @@
     if (window.Account && Account.init()) {
       accountOn = true;
       Account.onChange(onAccountChange);
+      // вызовы на дуэль приходят в любом месте игры (меню/игра/лобби)
+      Account.onChallenge(function (c) {
+        if (c.kind === "decline") {
+          Account.clearChallenge();
+          noticeDialog((c.fromName || T("playerW")) + " " + T("declinedDuel"), "😔");
+          if (NET.active && NET.isHost && (!G || !G.online)) { netCleanup(); renderMenu(); showScreen("screen-menu"); }
+          return;
+        }
+        pendingChallenge = c;
+        $("#chal-from").innerHTML = c.fromPhoto
+          ? '<img class="chal-av" src="' + esc(c.fromPhoto) + '" alt="" onerror="this.style.display=\'none\'">'
+          : genAvatar(c.fromName, "chal-av");
+        $("#chal-name").textContent = c.fromName || T("playerW");
+        $("#overlay-challenge").classList.add("show");
+        try { Sound.place(); } catch (e) {}
+      });
     }
+    $("#chal-accept").onclick = function () {
+      $("#overlay-challenge").classList.remove("show");
+      var c = pendingChallenge; pendingChallenge = null;
+      if (!c || !c.code) return;
+      stopTimer(); G = null;
+      goJoin(c.code);                 // обоих в комнату ожидания
+    };
+    $("#chal-decline").onclick = function () {
+      $("#overlay-challenge").classList.remove("show");
+      var c = pendingChallenge; pendingChallenge = null;
+      if (c && window.Account) {
+        Account.declineChallenge(c.fromUid);
+        setTimeout(function () { Account.clearChallenge(); }, 6000); // прибрать сигнал после доставки
+      }
+    };
+    $("#notice-ok").onclick = function () { $("#overlay-notice").classList.remove("show"); };
     $("#seg-auth").addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b) return;
