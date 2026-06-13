@@ -70,12 +70,25 @@ window.Account = (function () {
   }
 
   function loadProfile() {
-    withTimeout(db.collection("users").doc(user.uid).get(), 9000).then(function (s) {
-      profile = s.exists ? s.data() : { nick: user.displayName || "Игрок", totalScore: 0, games: 0, lang: "ru" };
-      notify();
+    var uid = user.uid;
+    function deflt() { return { nick: user.displayName || "Игрок", totalScore: 0, games: 0, lang: "ru" }; }
+    function apply(s) {
+      if (!user || user.uid !== uid) return true;   // пользователь сменился/вышел, пока грузили
+      if (s.exists) { profile = s.data(); notify(); return true; }
+      return false;
+    }
+    // source:"server" — полный документ с сервера, а не частичный кэш SDK.
+    // Кэш портит merge-запись online из startPresence: get() по умолчанию возвращал
+    // обрезанный {online}-документ → профиль приходил пустым (0 очков/0 игр в меню и пропадал из рейтинга).
+    withTimeout(db.collection("users").doc(uid).get({ source: "server" }), 9000).then(function (s) {
+      if (!apply(s)) { profile = deflt(); notify(); }
     }).catch(function () {
-      profile = { nick: user.displayName || "Игрок", totalScore: 0, games: 0, lang: "ru" };
-      notify();
+      // сервер недоступен — пробуем кэш, и лишь потом дефолт (не обнуляем уже загруженный профиль зря)
+      db.collection("users").doc(uid).get({ source: "cache" }).then(function (s) {
+        if (!apply(s) && !profile) { profile = deflt(); notify(); }
+      }).catch(function () {
+        if (!profile) { profile = deflt(); notify(); }
+      });
     });
   }
 
@@ -291,23 +304,33 @@ window.Account = (function () {
     var byMode = mode && mode !== "all";
     function parse(raw) {
       var rows = [];
-      var meUid = (user && profile) ? user.uid : null; // себя возьмём из локального профиля — он всегда свежее
+      var meUid = user ? user.uid : null;
+      var meServer = null;   // мой ряд из серверных данных — запасной, если локальный профиль пуст
       raw.forEach(function (r) {
-        if (meUid && r.uid === meUid) return; // свой ряд пропускаем из серверных данных, вставим ниже из профиля
         var v = r.v;
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
-        if (score <= 0) return; // пустые/без очков в этом режиме не показываем
         var games = byMode ? ((v.modeGames && v.modeGames[mode]) || 0) : (v.games || 0);
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
-        rows.push({ uid: r.uid, nick: v.nick, score: score, games: games, photo: v.photo || null, online: on });
+        var row = { uid: r.uid, nick: v.nick, score: score, games: games, photo: v.photo || null, online: on };
+        if (meUid && r.uid === meUid) { meServer = row; return; }   // себя добавим ниже — лучшее из источников
+        if (score <= 0) return; // пустые/без очков в этом режиме не показываем
+        rows.push(row);
       });
-      // свой ряд всегда из локального профиля — мгновенно, без серверной задержки
-      // (баг: source:"server" не отдаёт собственную ещё не подтверждённую запись → «меня нет в списке»)
+      // свой ряд: берём источник с бОльшим счётом, чтобы пустой/устаревший локальный профиль
+      // (или ещё не подтверждённая серверная запись) не прятал меня из таблицы
       if (meUid) {
-        var ms = byMode ? ((profile.modes && profile.modes[mode]) || 0) : (profile.totalScore || 0);
-        if (ms > 0) {
-          var mg = byMode ? ((profile.modeGames && profile.modeGames[mode]) || 0) : (profile.games || 0);
-          rows.push({ uid: meUid, nick: profile.nick, score: ms, games: mg, photo: profile.photo || null, online: Date.now() });
+        var lp = profile ? (byMode ? ((profile.modes && profile.modes[mode]) || 0) : (profile.totalScore || 0)) : 0;
+        var sp = meServer ? meServer.score : 0;
+        if (lp >= sp && lp > 0) {
+          rows.push({ uid: meUid,
+            nick: profile.nick || (meServer && meServer.nick),
+            score: lp,
+            games: byMode ? ((profile.modeGames && profile.modeGames[mode]) || 0) : (profile.games || 0),
+            photo: profile.photo || (meServer && meServer.photo) || null,
+            online: Date.now() });
+        } else if (meServer && sp > 0) {
+          meServer.online = Date.now();
+          rows.push(meServer);
         }
       }
       rows.sort(function (a, b) { return b.score - a.score; });
