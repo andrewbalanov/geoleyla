@@ -79,7 +79,9 @@
     players: [],     // ростер комнаты: [{pid, name, photo, ready}]
     myPid: 0,        // хост всегда 0
     pending: null,   // выбранный хостом режим: {mode, nQ, timer, diff, region}
-    code: ""
+    code: "",
+    chat: [],        // история чата сессии: [{pid, name, text}]
+    unread: 0        // непрочитанные при свёрнутом чате
   };
   var MAX_PLAYERS = 4;
   var CODE_AB = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -110,11 +112,90 @@
   function netCleanup() {
     var c = NET.conn, cs = NET.conns, p = NET.peer;
     NET = { active: false, isHost: false, peer: null, conn: null, conns: {},
-      nextPid: 1, players: [], myPid: 0, pending: null, code: "" };
+      nextPid: 1, players: [], myPid: 0, pending: null, code: "", chat: [], unread: 0 };
     try { if (c) c.close(); } catch (e) {}
     for (var k in cs) { try { cs[k].close(); } catch (e) {} }
     try { if (p) p.destroy(); } catch (e) {}
     $("#online-banner").style.display = "none";
+    chatOpen = chatIsWide();
+    applyChatOpen();
+    updateChatVisibility();
+  }
+
+  // ---------- Чат онлайн-сессии ----------
+  var chatOpen = false;     // развёрнут ли чат
+  var chatBound = false;
+  function chatIsWide() { return window.matchMedia("(min-width: 821px)").matches; }
+  function bindChat() {
+    if (chatBound) return; chatBound = true;
+    chatOpen = chatIsWide();  // десктоп — развёрнут, мобайл — свёрнут
+    $("#chat-fab").onclick = function () { setChatOpen(true); };
+    $("#chat-collapse").onclick = function () { setChatOpen(false); };
+    $("#chat-form").addEventListener("submit", function (e) { e.preventDefault(); sendChat(); });
+    applyChatOpen();
+  }
+  function setChatOpen(v) {
+    chatOpen = v;
+    if (v) NET.unread = 0;
+    applyChatOpen();
+    if (v) { renderChat(); var inp = $("#chat-input"); if (inp && chatIsWide()) inp.focus(); }
+  }
+  function applyChatOpen() {
+    var w = $("#chat-widget"); if (!w) return;
+    w.classList.toggle("open", chatOpen);
+    document.body.classList.toggle("chat-docked", chatOpen && chatIsWide() && w.style.display !== "none");
+    updateChatBadge();
+  }
+  function updateChatBadge() {
+    var fab = $("#chat-fab"); if (!fab) return;
+    var n = NET.unread || 0, show = n > 0 && !chatOpen;
+    fab.classList.toggle("has-unread", show);
+    var b = $("#chat-badge");
+    if (b) { b.textContent = n > 9 ? "9+" : String(n || ""); b.style.display = show ? "" : "none"; }
+  }
+  function updateChatVisibility() {
+    var w = $("#chat-widget"); if (!w) return;
+    var on = NET.active && (
+      $("#screen-game").classList.contains("active") ||
+      $("#screen-results").classList.contains("active") ||
+      ($("#screen-online").classList.contains("active") && $("#lobby-sec").style.display !== "none")
+    );
+    w.style.display = on ? "" : "none";
+    if (on) { bindChat(); renderChat(); applyChatOpen(); }
+    else { document.body.classList.remove("chat-docked"); }
+  }
+  function chatName(pid) {
+    for (var i = 0; i < NET.players.length; i++) if (NET.players[i].pid === pid) return NET.players[i].name;
+    return "—";
+  }
+  function renderChat() {
+    var log = $("#chat-log"); if (!log) return;
+    if (!NET.chat.length) { log.innerHTML = '<div class="chat-empty">' + esc(T("chatEmpty")) + "</div>"; return; }
+    log.innerHTML = NET.chat.map(function (m) {
+      var mine = m.pid === NET.myPid;
+      var who = mine ? T("chatYou") : (m.name || chatName(m.pid));
+      return '<div class="chat-msg' + (mine ? " mine" : "") + '">' +
+        '<span class="chat-who">' + esc(who) + "</span>" +
+        '<span class="chat-text">' + esc(m.text) + "</span></div>";
+    }).join("");
+    log.scrollTop = log.scrollHeight;
+  }
+  function addChatMsg(m) {
+    NET.chat.push(m);
+    if (NET.chat.length > 200) NET.chat.shift();
+    var visible = $("#chat-widget").style.display !== "none";
+    if (visible && chatOpen) { renderChat(); }
+    else if (m.pid !== NET.myPid) { NET.unread = (NET.unread || 0) + 1; updateChatBadge(); }
+  }
+  function sendChat() {
+    var inp = $("#chat-input"); if (!inp || !NET.active) return;
+    var text = (inp.value || "").trim().slice(0, 300);
+    inp.value = "";
+    if (!text) return;
+    var nm = myName();
+    addChatMsg({ pid: NET.myPid, name: nm, text: text });   // локальное эхо
+    if (NET.isHost) broadcast({ t: "chat", pid: NET.myPid, name: nm, text: text });
+    else netSend({ t: "chat", text: text });
   }
 
   function hostRoom() {
@@ -324,6 +405,7 @@
     $("#btn-copy-invite").style.display = canLink ? "" : "none";
     $("#share-row").style.display = canLink ? "" : "none";
     renderLobby();
+    updateChatVisibility();
   }
   function renderLobby() {
     if ($("#lobby-sec").style.display === "none") return;
@@ -441,6 +523,13 @@
       if (pid == null) return;
       if (NET.conns[pid]) { try { NET.conns[pid].close(); } catch (e) {} delete NET.conns[pid]; }
       hostDropPlayer(pid, false);
+    } else if (msg.t === "chat") {
+      if (pid == null) return;
+      var ctext = String(msg.text || "").slice(0, 300).trim();
+      if (!ctext) return;
+      var cname = chatName(pid);
+      addChatMsg({ pid: pid, name: cname, text: ctext });                 // показать у хоста
+      broadcast({ t: "chat", pid: pid, name: cname, text: ctext }, pid);  // ретранслировать всем, кроме автора
     }
   }
 
@@ -494,6 +583,9 @@
     } else if (msg.t === "busy") {
       netCleanup();
       $("#online-join-status").textContent = T("roomBusy");
+    } else if (msg.t === "chat") {
+      if (msg.pid === NET.myPid) return;
+      addChatMsg({ pid: msg.pid, name: msg.name, text: String(msg.text || "").slice(0, 300) });
     }
   }
 
@@ -680,6 +772,7 @@
   // ---------- Экраны ----------
   function showScreen(id) {
     $$(".screen").forEach(function (s) { s.classList.toggle("active", s.id === id); });
+    updateChatVisibility();
   }
 
   // ---------- Меню ----------
@@ -2503,6 +2596,11 @@
     },
     peer: function () { return NET.peer; },
     net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, players: NET.players, myPid: NET.myPid, pending: NET.pending }; },
+    // dev-хуки для проверки чата без второго пира
+    fakeSession: function () { NET.active = true; NET.isHost = true; NET.myPid = 0; NET.players = [{ pid: 0, name: "Я", ready: false }, { pid: 1, name: "Борис", ready: false }, { pid: 2, name: "Клод", ready: false }]; },
+    simChat: function (pid, name, text) { addChatMsg({ pid: pid, name: name, text: text }); },
+    chatState: function () { return { chat: NET.chat, unread: NET.unread, open: chatOpen, active: NET.active, visible: $("#chat-widget").style.display !== "none", docked: document.body.classList.contains("chat-docked") }; },
+    showChat: function () { updateChatVisibility(); },
     state: function () {
       if (!G) return null;
       return { phase: G.phase, q: G.qIndex, turn: G.turn, mode: G.mode, stage: activeMapName,

@@ -458,6 +458,25 @@
   </div>
 </div>
 
+<!-- ===================== ЧАТ ОНЛАЙН-СЕССИИ ===================== -->
+<div id="chat-widget" class="chat-widget" style="display:none">
+  <button id="chat-fab" class="chat-fab" title="Чат" aria-label="Чат">
+    <span class="chat-fab-ic">💬</span>
+    <span class="chat-badge" id="chat-badge"></span>
+  </button>
+  <div id="chat-panel" class="chat-panel" role="dialog" aria-label="Чат">
+    <div class="chat-head">
+      <span class="chat-title">💬 <span data-i18n="chatTitle">Чат</span></span>
+      <button id="chat-collapse" class="chat-collapse" title="Свернуть" aria-label="Свернуть">▾</button>
+    </div>
+    <div id="chat-log" class="chat-log"></div>
+    <form id="chat-form" class="chat-form" autocomplete="off">
+      <input id="chat-input" class="chat-input" maxlength="300" autocomplete="off" data-i18n-ph="chatPh" placeholder="Сообщение…">
+      <button type="submit" class="chat-send" title="Отправить" aria-label="Отправить">➤</button>
+    </form>
+  </div>
+</div>
+
 <canvas id="confetti"></canvas>
 
 <script src="js/lib/d3.min.js"></script>
