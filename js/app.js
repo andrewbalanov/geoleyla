@@ -611,7 +611,7 @@
     return shuffle(m.features.map(function (f, i) { return i; })).map(function (i) {
       var pr = m.features[i].properties;
       return { kind: "country", mode: mapName, mapName: mapName, title: pr.name, chip: chip,
-        sub: pr.orig, revealSub: pr.orig,
+        sub: pr.orig, revealSub: pr.orig, num: mapName === "france" ? pr.code : null,
         fid: i, target: m.centroidOf(i), decay: decay,
         reveal: pr.name };
     });
@@ -1020,13 +1020,14 @@
       return;
     }
     var html = "";
-    if (q.flag) html += '<img class="q-flag" src="assets/flags/' + q.flag + '.png" alt="флаг">';
-    if (q.img) html += '<img class="q-img" src="' + q.img + '" alt="">';
+    if (q.flag) html += '<img class="q-flag" src="assets/flags/' + q.flag + '.png" alt="флаг" onerror="this.style.display=\'none\'">';
+    if (q.img) html += '<img class="q-img" src="' + q.img + '" alt="" onerror="this.style.display=\'none\'">';
     // язык названий: en — английское крупно, русское мелко
     var tMain = q.title, tSub = q.sub;
     if (I18N.lang() === "en" && q.sub && q.sub !== q.title) { tMain = q.sub; tSub = q.title; }
     if (q.mode === "flagsmap") { tMain = T("whoseFlag"); tSub = null; }
-    html += '<div class="q-line"><div class="q-titles"><div class="q-title">' + esc(tMain) + "</div>";
+    html += '<div class="q-line"><div class="q-titles"><div class="q-title">' + esc(tMain) +
+      (q.num ? ' <span class="q-num">№ ' + esc(q.num) + "</span>" : "") + "</div>";
     if (tSub && tSub !== tMain) html += '<div class="q-sub">' + esc(tSub) + "</div>";
     html += "</div>";
     if (q.chip) html += '<span class="chip">' + esc(I18N.typeOf(q.chip)) + "</span>";
@@ -1238,6 +1239,7 @@
       rMain = T("itsFlag", fn); rSub = null;
     } else if (I18N.lang() === "en" && q.revealSub) { rMain = q.revealSub; rSub = q.reveal; }
     $("#reveal-title").innerHTML = esc(rMain) +
+      (q.num ? ' <span class="q-num">№ ' + esc(q.num) + "</span>" : "") +
       (rSub && rSub !== rMain ? '<div class="reveal-sub">' + esc(rSub) + "</div>" : "");
     $("#reveal-rows").innerHTML = rows;
     var last = G.qIndex + 1 >= G.questions.length;
@@ -1481,8 +1483,15 @@
     var d = getCardData(q);
     if (!d) return false;
     var img = $("#card-img");
-    img.style.display = d.img ? "" : "none";
-    if (d.img) img.src = d.img;
+    if (d.img) {
+      img.style.display = "";
+      img.onload = function () { img.style.display = ""; };
+      img.onerror = function () { img.style.display = "none"; }; // не показываем битое фото
+      img.src = d.img;
+    } else {
+      img.style.display = "none";
+      img.removeAttribute("src");
+    }
     $("#card-title").textContent = d.title || "";
     $("#card-sub").textContent = d.sub || "";
     var cap = $("#card-cap");
@@ -1902,15 +1911,37 @@
     "</div>";
   }
 
+  var lbMode = "all";
   function openLeaders() {
     showScreen("screen-leaders");
+    // ряд иконок режимов: «По всем» + каждый игровой режим
+    var modes = [{ key: "all", icon: "🏆", name: T("lbAll") }];
+    Object.keys(MODES).forEach(function (k) {
+      modes.push({ key: k, icon: MODES[k].icon, name: I18N.modeName(k, MODES[k].name) });
+    });
+    $("#lb-modes").innerHTML = modes.map(function (m) {
+      return '<button class="lb-mode" data-mode="' + m.key + '" data-name="' + esc(m.name) +
+        '" title="' + esc(m.name) + '">' + m.icon + "</button>";
+    }).join("");
+    $$("#lb-modes .lb-mode").forEach(function (b) {
+      b.onclick = function () { renderLeaderboard(b.getAttribute("data-mode")); };
+    });
+    renderLeaderboard("all");
+  }
+  function renderLeaderboard(mode) {
+    lbMode = mode;
+    $$("#lb-modes .lb-mode").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-mode") === mode);
+    });
+    $("#lb-sub").textContent = mode === "all" ? T("lbAll")
+      : (MODES[mode].icon + " " + I18N.modeName(mode, MODES[mode].name));
     $("#leaders-status").textContent = T("loadingLb");
     $("#leaders-table").innerHTML = "";
     $("#lb-podium").innerHTML = "";
     $("#lb-table-wrap").style.display = "none";
     renderH2H2($("#leaders-h2h"));
     if (!window.Account || !firebase) { $("#leaders-status").textContent = T("lbUnavail"); return; }
-    Account.leaderboard().then(function (rows) {
+    Account.leaderboard(mode === "all" ? null : mode).then(function (rows) {
       if (!rows.length) {
         $("#leaders-status").textContent = T("lbEmpty");
         return;
@@ -1958,7 +1989,7 @@
       var mine = G.players.filter(function (p) { return p.name.toLowerCase() === nick; })[0];
       if (mine) pts = mine.score;
     }
-    if (pts > 0) Account.addScore(pts);
+    if (pts > 0) Account.addScore(pts, G.mode);
   }
 
   // ---------- Звук ----------

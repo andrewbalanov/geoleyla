@@ -120,7 +120,7 @@ window.I18N = (function () {
       emailVerify: "✉️ Подтвердите смену по письму на новом адресе", photoUpdated: "✔ Фото обновлено",
       emailW: "Email", scoreW: "Очки", gamesW: "Игр", playerW: "Игрок",
       // рейтинг
-      leadersTitle: "Рейтинг клуба", leadersSub: "Зал славы географических экспедиций",
+      leadersTitle: "Рейтинг клуба", leadersSub: "Зал славы географических экспедиций", lbAll: "🏆 По всем режимам",
       loadingLb: "⏳ Загружаем рейтинг…",
       lbEmpty: "Пока никто не сыграл — будь первым!", lbUnavail: "Рейтинг недоступен",
       // подсказки по режимам/прочее
@@ -240,7 +240,7 @@ window.I18N = (function () {
       nickChanged: "✔ Name changed", passChanged: "✔ Password changed",
       emailVerify: "✉️ Confirm the change via the email sent to your new address", photoUpdated: "✔ Photo updated",
       emailW: "Email", scoreW: "Points", gamesW: "Games", playerW: "Player",
-      leadersTitle: "Club Leaderboard", leadersSub: "Hall of fame of geographical expeditions",
+      leadersTitle: "Club Leaderboard", leadersSub: "Hall of fame of geographical expeditions", lbAll: "🏆 All modes",
       loadingLb: "⏳ Loading leaderboard…",
       lbEmpty: "No one has played yet — be the first!", lbUnavail: "Leaderboard unavailable",
       noQuestions: "No questions for this mode",

@@ -205,36 +205,40 @@ window.Account = (function () {
     return db.collection("users").doc(user.uid).update({ lang: lang }).catch(function () {});
   }
 
-  function addScore(pts) {
+  function addScore(pts, mode) {
     if (!user || !db || !pts) return Promise.resolve();
-    if (profile) { profile.totalScore = (profile.totalScore || 0) + pts; profile.games = (profile.games || 0) + 1; notify(); }
-    // set+merge вместо update — начислит очки и счётчик игр, даже если документа ещё нет
-    return db.collection("users").doc(user.uid).set({
-      totalScore: firebase.firestore.FieldValue.increment(pts),
-      games: firebase.firestore.FieldValue.increment(1)
-    }, { merge: true }).catch(function () {});
+    var inc = firebase.firestore.FieldValue.increment;
+    if (profile) {
+      profile.totalScore = (profile.totalScore || 0) + pts;
+      profile.games = (profile.games || 0) + 1;
+      if (mode) { profile.modes = profile.modes || {}; profile.modes[mode] = (profile.modes[mode] || 0) + pts; }
+      notify();
+    }
+    // set+merge с вложенным increment — начислит и общие очки, и очки по режиму, даже если поля ещё нет
+    var upd = { totalScore: inc(pts), games: inc(1) };
+    if (mode) { upd.modes = {}; upd.modes[mode] = inc(pts); }
+    return db.collection("users").doc(user.uid).set(upd, { merge: true }).catch(function () {});
   }
 
   // осиротевшие тест-аккаунты (auth удалён, документ обнулить уже нельзя) — прячем из рейтинга
   var SKIP_UIDS = { "EdXftNsdSlUdacOn3cqcpMBGJXC3": 1 };
-  function parseLeaders(snap) {
-    var rows = [];
-    snap.forEach(function (d) {
-      if (SKIP_UIDS[d.id]) return;
-      var v = d.data();
-      if ((v.totalScore || 0) <= 0) return; // пустые и удалённые аккаунты не показываем
-      rows.push({ uid: d.id, nick: v.nick, score: v.totalScore || 0, games: v.games || 0, photo: v.photo || null });
-    });
-    rows.sort(function (a, b) { return b.score - a.score; });
-    return rows.slice(0, 50);
-  }
-  function leaderboard() {
-    return withTimeout(db.collection("users").orderBy("totalScore", "desc").limit(60).get(), 9000)
-      .then(parseLeaders)
-      .catch(function () {
-        // запасной путь, если серверная сортировка/индекс подвели — тянем без orderBy и сортируем у себя
-        return withTimeout(db.collection("users").limit(300).get(), 12000).then(parseLeaders);
+  // mode: null/"all" — общий рейтинг (totalScore); иначе — очки конкретного режима (modes[mode])
+  function leaderboard(mode) {
+    var byMode = mode && mode !== "all";
+    function parse(snap) {
+      var rows = [];
+      snap.forEach(function (d) {
+        if (SKIP_UIDS[d.id]) return;
+        var v = d.data();
+        var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
+        if (score <= 0) return; // пустые/без очков в этом режиме не показываем
+        rows.push({ uid: d.id, nick: v.nick, score: score, games: v.games || 0, photo: v.photo || null });
       });
+      rows.sort(function (a, b) { return b.score - a.score; });
+      return rows.slice(0, 50);
+    }
+    // тянем всех и сортируем у себя — не нужен индекс на каждый режим (база небольшая)
+    return withTimeout(db.collection("users").limit(300).get(), 12000).then(parse);
   }
 
   return {
