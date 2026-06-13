@@ -1387,6 +1387,7 @@
       return { img: h.photo || null,
         title: en ? h.en : h.name,
         sub: en ? h.name : h.en,
+        place: en ? (h.placeEn || h.place) : (h.place || h.placeEn),
         text: (en && h.infoEn) ? h.infoEn : (h.info || ""),
         hist: h };
     }
@@ -1459,6 +1460,7 @@
           '<span class="hist-era">' + esc(histEra(d.hist.year)) + "</span>" +
           '<span class="hist-cat">' + c.icon + " " + esc(catLabel) + "</span>" +
         "</div>" +
+        (d.place ? '<div class="hist-place">📍 ' + esc(d.place) + "</div>" : "") +
         '<div class="hist-timeline">' + histTimeline(d.hist.year) + "</div>";
     } else {
       hb.style.display = "none";

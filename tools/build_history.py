@@ -124,6 +124,113 @@ EVENTS = [
 ]
 
 
+# место события: slug -> (RU «Город, Страна», EN «City, Country»)
+PLACE = {
+ "marathon": ("Марафон, Греция", "Marathon, Greece"),
+ "thermopylae": ("Фермопилы, Греция", "Thermopylae, Greece"),
+ "gaugamela": ("близ Мосула, Ирак", "near Mosul, Iraq"),
+ "cannae": ("Канны, Италия", "Cannae, Italy"),
+ "zama": ("Зама, Тунис", "Zama, Tunisia"),
+ "hastings": ("Гастингс, Англия", "Hastings, England"),
+ "icebattle": ("Чудское озеро, Россия", "Lake Peipus, Russia"),
+ "hattin": ("Рога Хаттина, Израиль", "Horns of Hattin, Israel"),
+ "kulikovo": ("Куликово поле, Россия", "Kulikovo Field, Russia"),
+ "grunwald": ("Грюнвальд, Польша", "Grunwald, Poland"),
+ "agincourt": ("Азенкур, Франция", "Agincourt, France"),
+ "constantinople": ("Стамбул, Турция", "Istanbul, Turkey"),
+ "bosworth": ("Босворт, Англия", "Bosworth, England"),
+ "lepanto": ("залив Патраикос, Греция", "Gulf of Patras, Greece"),
+ "poltava": ("Полтава, Украина", "Poltava, Ukraine"),
+ "trafalgar": ("мыс Трафальгар, Испания", "Cape Trafalgar, Spain"),
+ "austerlitz": ("Славков, Чехия", "Slavkov, Czechia"),
+ "borodino": ("Бородино, Россия", "Borodino, Russia"),
+ "waterloo": ("Ватерлоо, Бельгия", "Waterloo, Belgium"),
+ "gettysburg": ("Геттисберг, США", "Gettysburg, USA"),
+ "somme": ("река Сомма, Франция", "Somme, France"),
+ "verdun": ("Верден, Франция", "Verdun, France"),
+ "pearlharbor": ("Пёрл-Харбор, Гавайи, США", "Pearl Harbor, Hawaii, USA"),
+ "moscow1941": ("Москва, Россия", "Moscow, Russia"),
+ "stalingrad": ("Волгоград, Россия", "Volgograd, Russia"),
+ "kursk": ("Курск, Россия", "Kursk, Russia"),
+ "dday": ("Нормандия, Франция", "Normandy, France"),
+ "iwojima": ("Иводзима, Япония", "Iwo Jima, Japan"),
+ "berlin1945": ("Берлин, Германия", "Berlin, Germany"),
+ "hwando": ("Халхин-Гол, Монголия", "Khalkhin Gol, Mongolia"),
+ "columbus": ("Сан-Сальвадор, Багамы", "San Salvador, Bahamas"),
+ "vascodagama": ("Каликут, Индия", "Calicut, India"),
+ "magellan": ("Санлукар, Испания", "Sanlúcar, Spain"),
+ "cook": ("Ботани-Бей, Австралия", "Botany Bay, Australia"),
+ "bellingshausen": ("Антарктида", "Antarctica"),
+ "southpole": ("Южный полюс", "South Pole"),
+ "northpole": ("Северный полюс", "North Pole"),
+ "everest": ("Эверест, Непал", "Mount Everest, Nepal"),
+ "machupicchu": ("Мачу-Пикчу, Перу", "Machu Picchu, Peru"),
+ "tutankhamun": ("Долина Царей, Египет", "Valley of the Kings, Egypt"),
+ "rosetta": ("Розетта, Египет", "Rosetta, Egypt"),
+ "titanicroute": ("Валентия, Ирландия", "Valentia, Ireland"),
+ "suez": ("Суэцкий канал, Египет", "Suez Canal, Egypt"),
+ "panama": ("Панамский канал, Панама", "Panama Canal, Panama"),
+ "vesuvius": ("Помпеи, Италия", "Pompeii, Italy"),
+ "lisbon": ("Лиссабон, Португалия", "Lisbon, Portugal"),
+ "tambora": ("вулкан Тамбора, Индонезия", "Mount Tambora, Indonesia"),
+ "krakatoa": ("Кракатау, Индонезия", "Krakatoa, Indonesia"),
+ "greatfire": ("Лондон, Англия", "London, England"),
+ "sanfran1906": ("Сан-Франциско, США", "San Francisco, USA"),
+ "titanic": ("Северная Атлантика", "North Atlantic"),
+ "kanto": ("Токио, Япония", "Tokyo, Japan"),
+ "hiroshima": ("Хиросима, Япония", "Hiroshima, Japan"),
+ "nagasaki": ("Нагасаки, Япония", "Nagasaki, Japan"),
+ "chernobyl": ("Припять, Украина", "Pripyat, Ukraine"),
+ "tsunami2004": ("Суматра, Индонезия", "Sumatra, Indonesia"),
+ "fukushima": ("Фукусима, Япония", "Fukushima, Japan"),
+ "pyramids": ("Гиза, Египет", "Giza, Egypt"),
+ "stonehenge": ("Уилтшир, Англия", "Wiltshire, England"),
+ "greatwall": ("Китай", "China"),
+ "olympia": ("Олимпия, Греция", "Olympia, Greece"),
+ "rome": ("Рим, Италия", "Rome, Italy"),
+ "alexandria": ("Александрия, Египет", "Alexandria, Egypt"),
+ "colosseum": ("Рим, Италия", "Rome, Italy"),
+ "petra": ("Петра, Иордания", "Petra, Jordan"),
+ "chichenitza": ("Юкатан, Мексика", "Yucatán, Mexico"),
+ "angkor": ("Ангкор, Камбоджа", "Angkor, Cambodia"),
+ "tajmahal": ("Агра, Индия", "Agra, India"),
+ "silkroad": ("Самарканд, Узбекистан", "Samarkand, Uzbekistan"),
+ "terracotta": ("Сиань, Китай", "Xi'an, China"),
+ "rometfall": ("Рим, Италия", "Rome, Italy"),
+ "charlemagne": ("Рим, Италия", "Rome, Italy"),
+ "rus988": ("Киев, Украина", "Kyiv, Ukraine"),
+ "magnacarta": ("Раннимид, Англия", "Runnymede, England"),
+ "luther": ("Виттенберг, Германия", "Wittenberg, Germany"),
+ "mayflower": ("Плимут, США", "Plymouth, USA"),
+ "bostontea": ("Бостон, США", "Boston, USA"),
+ "usdeclaration": ("Филадельфия, США", "Philadelphia, USA"),
+ "bastille": ("Париж, Франция", "Paris, France"),
+ "octrev": ("Санкт-Петербург, Россия", "St. Petersburg, Russia"),
+ "sarajevo": ("Сараево, Босния и Герцеговина", "Sarajevo, Bosnia and Herzegovina"),
+ "versailles": ("Версаль, Франция", "Versailles, France"),
+ "yalta": ("Ялта, Крым", "Yalta, Crimea"),
+ "japansurrender": ("Токийский залив, Япония", "Tokyo Bay, Japan"),
+ "berlinwall": ("Берлин, Германия", "Berlin, Germany"),
+ "ussrend": ("Беловежская пуща, Беларусь", "Belovezha Forest, Belarus"),
+ "mlk": ("Вашингтон, США", "Washington, D.C., USA"),
+ "cubacrisis": ("Гавана, Куба", "Havana, Cuba"),
+ "911": ("Нью-Йорк, США", "New York, USA"),
+ "gutenberg": ("Майнц, Германия", "Mainz, Germany"),
+ "wright": ("Китти-Хок, США", "Kitty Hawk, USA"),
+ "penicillin": ("Лондон, Англия", "London, England"),
+ "trinity": ("Нью-Мексико, США", "New Mexico, USA"),
+ "dna": ("Кембридж, Англия", "Cambridge, England"),
+ "cern": ("Женева, Швейцария", "Geneva, Switzerland"),
+ "telephone": ("Бостон, США", "Boston, USA"),
+ "edison": ("Менло-Парк, США", "Menlo Park, USA"),
+ "radioactivity": ("Париж, Франция", "Paris, France"),
+ "goldrush": ("Калифорния, США", "California, USA"),
+ "gagarin": ("Байконур, Казахстан", "Baikonur, Kazakhstan"),
+ "apollo11": ("мыс Канаверал, США", "Cape Canaveral, USA"),
+ "sputnik": ("Байконур, Казахстан", "Baikonur, Kazakhstan"),
+}
+
+
 def http(url):
     for a in range(3):
         try:
@@ -174,7 +281,7 @@ def fetch_en(titles):
         batch = titles[i:i + 20]
         q = urllib.parse.urlencode({
             "action": "query", "format": "json", "redirects": 1,
-            "prop": "extracts", "exintro": 1, "exsentences": 5,
+            "prop": "extracts", "exintro": 1, "exsentences": 9,
             "explaintext": 1, "exlimit": "max", "titles": "|".join(batch)})
         res = http(EN_API + "?" + q)
         if res:
@@ -187,12 +294,12 @@ def fetch_en(titles):
     return out
 
 
-def trim(text, n=520):
+def trim(text, n=1200):
     text = re.sub(r"\s+", " ", text or "").strip()
     if len(text) > n:
         cut = text[:n]
         dot = cut.rfind(". ")
-        text = cut[:dot + 1] if dot > 200 else cut + "…"
+        text = cut[:dot + 1] if dot > 600 else cut + "…"
     return text
 
 
@@ -226,9 +333,11 @@ def main():
         img = d.get("img") or ""
         if not info:
             miss.append(name)
+        pl = PLACE.get(slug, ("", ""))
         data.append({
             "img": slug, "name": name, "en": ent or name,
             "lat": lat, "lng": lng, "year": year, "cat": cat, "r": 130,
+            "place": pl[0], "placeEn": pl[1],
             "info": info, "infoEn": infoEn, "photo": img})
 
     with open(os.path.join(BASE, "js/data/history.js"), "w", encoding="utf-8") as f:

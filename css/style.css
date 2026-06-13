@@ -971,6 +971,11 @@ img.av {
 }
 .hist-era { background: rgba(125, 36, 51, 0.1); color: #7d2433; border: 1px solid rgba(125, 36, 51, 0.3); }
 .hist-cat { background: rgba(43, 74, 58, 0.1); color: #2b4a3a; border: 1px solid rgba(43, 74, 58, 0.3); }
+.hist-place {
+  text-align: center; font-size: 14px; font-weight: 800; color: #5e4a1f;
+  background: rgba(124, 97, 22, 0.08); border: 1px solid #d8c79a;
+  border-radius: 8px; padding: 6px 12px;
+}
 .hist-timeline {
   background: rgba(0, 0, 0, 0.04); border: 1px solid #d8c79a; border-radius: 10px;
   padding: 6px 8px 2px;
@@ -988,6 +993,8 @@ img.av {
 .wine-row b { font-size: 14px; color: #4a1521; }
 .wine-row span { font-size: 12.5px; color: #6d5b35; }
 .infocard .btn-big { margin-top: 4px; }
+/* кнопка «Продолжить» остаётся на виду при прокрутке длинного текста */
+.infocard .btn-close { position: sticky; bottom: -2px; z-index: 2; }
 
 /* ---------- Передача устройства ---------- */
 #overlay-handoff {
