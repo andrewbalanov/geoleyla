@@ -1743,6 +1743,8 @@
     $("#prof-google-note").style.display = g ? "" : "none";
     $("#row-prof-pass").style.display = g ? "none" : "";
     $("#row-prof-email").style.display = g ? "none" : "";
+    // кнопка установки — только если игра ещё не открыта как приложение
+    $("#btn-install-app").style.display = isStandalone() ? "none" : "";
     showScreen("screen-profile");
   }
 
@@ -1854,6 +1856,177 @@
     });
   }
 
+  // ---------- Гайд: установка как приложение (PWA) ----------
+  function isStandalone() {
+    return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
+      navigator.standalone === true;
+  }
+  function installOS() {
+    var ua = navigator.userAgent || "";
+    if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) return "ios";
+    if (/android/i.test(ua)) return "android";
+    if (/macintosh|mac os x/i.test(ua)) return "mac";
+    return "desktop";
+  }
+
+  // SVG-иллюстрации шагов (клубные золото/зелёный)
+  function guideIllus(name) {
+    var G = "#e8cd80", C = "#f3ead6", P = "#ff5fa2", glow = "#c9a227";
+    function appIcon(cx, cy, s) {
+      var h = s / 2;
+      return '<rect x="' + (cx - h) + '" y="' + (cy - h) + '" width="' + s + '" height="' + s + '" rx="' + (s * 0.23) + '" fill="#1c3a32" stroke="' + G + '" stroke-width="2.5"/>' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + (s * 0.3) + '" fill="none" stroke="' + G + '" stroke-width="2.2"/>' +
+        '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + (s * 0.13) + '" ry="' + (s * 0.3) + '" fill="none" stroke="' + G + '" stroke-width="1.5"/>' +
+        '<line x1="' + (cx - s * 0.3) + '" y1="' + cy + '" x2="' + (cx + s * 0.3) + '" y2="' + cy + '" stroke="' + G + '" stroke-width="1.5"/>' +
+        '<circle cx="' + (cx + s * 0.12) + '" cy="' + (cy - s * 0.11) + '" r="' + (s * 0.055) + '" fill="' + P + '"/>';
+    }
+    function ring(cx, cy, r) {
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + P + '" stroke-width="3"><animate attributeName="r" values="' + r + ';' + (r + 7) + ';' + r + '" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/></circle>';
+    }
+    function shareGlyph(cx, cy) {
+      return '<rect x="' + (cx - 7) + '" y="' + (cy - 3) + '" width="14" height="13" rx="2" fill="none" stroke="' + G + '" stroke-width="2"/>' +
+        '<line x1="' + cx + '" y1="' + (cy - 11) + '" x2="' + cx + '" y2="' + (cy + 4) + '" stroke="' + G + '" stroke-width="2"/>' +
+        '<path d="M' + (cx - 4) + ' ' + (cy - 7) + ' l4 -4 l4 4" fill="none" stroke="' + G + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    var s = '<svg viewBox="0 0 280 180" width="100%" height="100%">';
+    if (name === "icon") {
+      s += appIcon(140, 84, 104) +
+        '<circle cx="185" cy="120" r="21" fill="#2e8b57" stroke="' + C + '" stroke-width="3"/>' +
+        '<line x1="185" y1="110" x2="185" y2="130" stroke="' + C + '" stroke-width="3.4" stroke-linecap="round"/>' +
+        '<line x1="175" y1="120" x2="195" y2="120" stroke="' + C + '" stroke-width="3.4" stroke-linecap="round"/>';
+    } else if (name === "shareIOS") {
+      s += '<rect x="78" y="14" width="124" height="152" rx="20" fill="#0d231c" stroke="' + G + '" stroke-width="2.5"/>' +
+        '<rect x="86" y="24" width="108" height="104" rx="6" fill="#16302a"/>' +
+        '<rect x="86" y="134" width="108" height="26" rx="6" fill="#1c3a32"/>' +
+        '<g>' + shareGlyph(110, 147) + '</g>' + ring(110, 147, 17) +
+        '<circle cx="140" cy="147" r="3" fill="#3a5a50"/><circle cx="170" cy="147" r="3" fill="#3a5a50"/>' +
+        '<text x="110" y="178" text-anchor="middle" fill="' + P + '" font-size="13" font-weight="700">Поделиться</text>';
+    } else if (name === "addHome") {
+      s += '<rect x="40" y="22" width="200" height="136" rx="16" fill="#16302a" stroke="' + G + '" stroke-width="2"/>' +
+        '<rect x="56" y="40" width="168" height="22" rx="6" fill="#1c3a32"/>' +
+        '<rect x="56" y="70" width="168" height="22" rx="6" fill="#1c3a32"/>' +
+        '<rect x="52" y="98" width="176" height="34" rx="8" fill="#23463d" stroke="' + P + '" stroke-width="2.5"/>' +
+        '<rect x="62" y="107" width="16" height="16" rx="3" fill="none" stroke="' + G + '" stroke-width="2"/>' +
+        '<line x1="70" y1="110" x2="70" y2="120" stroke="' + G + '" stroke-width="2"/><line x1="65" y1="115" x2="75" y2="115" stroke="' + G + '" stroke-width="2"/>' +
+        '<rect x="90" y="112" width="110" height="7" rx="3.5" fill="' + C + '" opacity="0.8"/>';
+    } else if (name === "homeDone") {
+      s += '<rect x="78" y="14" width="124" height="152" rx="20" fill="#0d231c" stroke="' + G + '" stroke-width="2.5"/>';
+      for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++) {
+        var x = 96 + c * 32, y = 36 + r * 40;
+        if (r === 0 && c === 1) { s += appIcon(x + 11, y + 11, 26) + ring(x + 11, y + 11, 22); }
+        else s += '<rect x="' + x + '" y="' + y + '" width="22" height="22" rx="6" fill="#23463d"/>';
+      }
+      s += '<text x="140" y="150" text-anchor="middle" fill="' + P + '" font-size="22">✓</text>';
+    } else if (name === "shareMac") {
+      s += '<rect x="30" y="28" width="220" height="124" rx="12" fill="#0d231c" stroke="' + G + '" stroke-width="2.5"/>' +
+        '<rect x="30" y="28" width="220" height="26" rx="12" fill="#1c3a32"/>' +
+        '<circle cx="46" cy="41" r="4" fill="#e15b5b"/><circle cx="60" cy="41" r="4" fill="#e8cd80"/><circle cx="74" cy="41" r="4" fill="#7ee08b"/>' +
+        '<rect x="92" y="34" width="120" height="14" rx="7" fill="#16302a"/>' +
+        '<g>' + shareGlyph(228, 41) + '</g>' + ring(228, 41, 15) +
+        '<text x="200" y="96" text-anchor="middle" fill="' + C + '" font-size="13" opacity="0.7">Safari ▸ Поделиться</text>';
+    } else if (name === "addDock") {
+      s += '<rect x="70" y="20" width="160" height="140" rx="12" fill="#16302a" stroke="' + G + '" stroke-width="2"/>' +
+        '<rect x="84" y="34" width="132" height="20" rx="5" fill="#1c3a32"/>' +
+        '<rect x="80" y="60" width="140" height="30" rx="7" fill="#23463d" stroke="' + P + '" stroke-width="2.5"/>' +
+        '<rect x="92" y="69" width="14" height="12" rx="2" fill="none" stroke="' + G + '" stroke-width="2"/>' +
+        '<rect x="116" y="71" width="92" height="8" rx="4" fill="' + C + '" opacity="0.85"/>' +
+        '<rect x="84" y="98" width="132" height="20" rx="5" fill="#1c3a32"/>' +
+        '<rect x="84" y="124" width="132" height="20" rx="5" fill="#1c3a32"/>';
+    } else if (name === "dock") {
+      s += '<rect x="34" y="104" width="212" height="48" rx="16" fill="#16302a" stroke="' + G + '" stroke-width="2"/>';
+      for (var k = 0; k < 5; k++) {
+        var dx = 56 + k * 38;
+        if (k === 2) { s += appIcon(dx, 128, 38) + ring(dx, 128, 26) + '<text x="' + dx + '" y="92" text-anchor="middle" fill="' + P + '" font-size="18">↓</text>'; }
+        else s += '<rect x="' + (dx - 15) + '" y="113" width="30" height="30" rx="8" fill="#23463d"/>';
+      }
+    }
+    return s + "</svg>";
+  }
+
+  var GUIDE = {
+    ru: {
+      step: "Шаг {0} из {1}", next: "Далее ›", done: "Готово ✓", back: "‹ Назад",
+      ios: [
+        { i: "icon", t: "Установите как приложение", x: "Добавьте «Геоклуб» на экран «Домой» — игра будет открываться как настоящее приложение: на весь экран, без адресной строки." },
+        { i: "shareIOS", t: "Откройте в Safari", x: "Внизу экрана Safari нажмите кнопку «Поделиться» — квадрат со стрелкой вверх." },
+        { i: "addHome", t: "«На экран „Домой“»", x: "Пролистайте список и выберите пункт «На экран „Домой“» со значком ⊕." },
+        { i: "homeDone", t: "Готово!", x: "Нажмите «Добавить» — золотая иконка появится на домашнем экране. Запускайте игру как обычное приложение." }
+      ],
+      mac: [
+        { i: "icon", t: "Установите как приложение", x: "Добавьте «Геоклуб» в Dock — игра будет открываться в отдельном окне, как настоящее приложение Mac." },
+        { i: "shareMac", t: "Откройте в Safari", x: "На панели Safari справа вверху нажмите кнопку «Поделиться»." },
+        { i: "addDock", t: "«Добавить в Dock»", x: "Выберите «Добавить в Dock». В Chrome — значок установки ⊕ в адресной строке → «Установить»." },
+        { i: "dock", t: "Готово!", x: "Иконка появится в Dock — запускайте игру одним кликом." }
+      ],
+      android: [
+        { i: "icon", t: "Установите как приложение", x: "Добавьте «Геоклуб» на главный экран — игра будет открываться как настоящее приложение." },
+        { i: "shareIOS", t: "Меню браузера", x: "Откройте меню браузера (⋮ вверху справа)." },
+        { i: "addHome", t: "«Установить приложение»", x: "Выберите «Установить приложение» или «Добавить на главный экран»." },
+        { i: "homeDone", t: "Готово!", x: "Иконка появится на главном экране. Запускайте игру в одно касание." }
+      ],
+      desktop: [
+        { i: "icon", t: "Установите как приложение", x: "Установите «Геоклуб» как приложение — оно откроется в отдельном окне, без вкладок браузера." },
+        { i: "addDock", t: "Значок установки", x: "В адресной строке Chrome/Edge нажмите значок установки ⊕ (или меню ⋮ → «Установить»)." },
+        { i: "dock", t: "Готово!", x: "Приложение появится среди программ — запускайте одним кликом." }
+      ]
+    },
+    en: {
+      step: "Step {0} of {1}", next: "Next ›", done: "Done ✓", back: "‹ Back",
+      ios: [
+        { i: "icon", t: "Install as an app", x: "Add “GeoClub” to your Home Screen — it opens like a real app: full-screen, no address bar." },
+        { i: "shareIOS", t: "Open in Safari", x: "At the bottom of Safari, tap the Share button — a square with an up arrow." },
+        { i: "addHome", t: "“Add to Home Screen”", x: "Scroll the list and choose “Add to Home Screen” with the ⊕ icon." },
+        { i: "homeDone", t: "Done!", x: "Tap “Add” — the golden icon appears on your Home Screen. Launch it like any app." }
+      ],
+      mac: [
+        { i: "icon", t: "Install as an app", x: "Add “GeoClub” to your Dock — it opens in its own window, like a real Mac app." },
+        { i: "shareMac", t: "Open in Safari", x: "In the Safari toolbar (top-right), click the Share button." },
+        { i: "addDock", t: "“Add to Dock”", x: "Choose “Add to Dock”. In Chrome — the install ⊕ icon in the address bar → “Install”." },
+        { i: "dock", t: "Done!", x: "The icon appears in your Dock — launch the game with one click." }
+      ],
+      android: [
+        { i: "icon", t: "Install as an app", x: "Add “GeoClub” to your home screen — it opens like a real app." },
+        { i: "shareIOS", t: "Browser menu", x: "Open the browser menu (⋮ top-right)." },
+        { i: "addHome", t: "“Install app”", x: "Choose “Install app” or “Add to Home screen”." },
+        { i: "homeDone", t: "Done!", x: "The icon appears on your home screen. Launch it in one tap." }
+      ],
+      desktop: [
+        { i: "icon", t: "Install as an app", x: "Install “GeoClub” as an app — it opens in its own window, without browser tabs." },
+        { i: "addDock", t: "Install icon", x: "In Chrome/Edge address bar click the install ⊕ icon (or menu ⋮ → “Install”)." },
+        { i: "dock", t: "Done!", x: "The app appears among your programs — launch it with one click." }
+      ]
+    }
+  };
+
+  var installIdx = 0, installSteps = [];
+  function openInstallGuide() {
+    var lang = I18N.lang() === "en" ? "en" : "ru";
+    installSteps = GUIDE[lang][installOS()] || GUIDE[lang].desktop;
+    installIdx = 0;
+    renderInstallStep();
+    $("#overlay-install").classList.add("show");
+  }
+  function renderInstallStep() {
+    var lang = I18N.lang() === "en" ? "en" : "ru";
+    var st = installSteps[installIdx];
+    var last = installIdx >= installSteps.length - 1;
+    $("#install-illus").innerHTML = guideIllus(st.i);
+    $("#install-step-n").textContent = T2(GUIDE[lang].step, installIdx + 1, installSteps.length);
+    $("#install-title").textContent = st.t;
+    $("#install-text").textContent = st.x;
+    $("#install-back").style.visibility = installIdx === 0 ? "hidden" : "";
+    $("#install-back").textContent = GUIDE[lang].back;
+    $("#install-next").textContent = last ? GUIDE[lang].done : GUIDE[lang].next;
+    $("#install-dots").innerHTML = installSteps.map(function (_, i) {
+      return '<span class="idot' + (i === installIdx ? " on" : "") + '"></span>';
+    }).join("");
+  }
+  function T2(tmpl, a, b) { return tmpl.replace("{0}", a).replace("{1}", b); }
+  function closeInstallGuide() {
+    $("#overlay-install").classList.remove("show");
+    try { localStorage.setItem("gm_install_seen", "1"); } catch (e) {}
+  }
+
   // ---------- Инициализация ----------
   function normExt(e) {
     return { img: e.img, en: e.en, name: e.name, type: e.type, lat: e.lat, lng: e.lng, r: e.r,
@@ -1918,6 +2091,14 @@
     $$(".overlay-card .btn-close").forEach(function (b) {
       b.onclick = function () { b.closest(".overlay").classList.remove("show"); };
     });
+    // гайд установки приложения
+    $("#install-close").onclick = closeInstallGuide;
+    $("#install-back").onclick = function () { if (installIdx > 0) { installIdx--; renderInstallStep(); } };
+    $("#install-next").onclick = function () {
+      if (installIdx >= installSteps.length - 1) closeInstallGuide();
+      else { installIdx++; renderInstallStep(); }
+    };
+    $("#btn-install-app").onclick = openInstallGuide;
     $("#btn-net-menu").onclick = function () {
       $("#overlay-net").classList.remove("show");
       quitToMenu();
@@ -2107,11 +2288,12 @@
       switchLang(b.getAttribute("data-val"));
       gameLang = I18N.lang();
     });
-    $("#btn-lang").onclick = function () {
+    // переключатель языка остался только на парадном входе (до логина) и в профиле
+    var toggleLang = function () {
       switchLang(I18N.lang() === "ru" ? "en" : "ru");
       gameLang = I18N.lang();
     };
-    $("#btn-welcome-lang").onclick = $("#btn-lang").onclick;
+    if ($("#btn-welcome-lang")) $("#btn-welcome-lang").onclick = toggleLang;
 
     $("#inp-p1").addEventListener("input", renderH2H);
     initLeylaPhoto();
@@ -2132,6 +2314,15 @@
     setTimeout(function () {
       if (!(window.Account && Account.isIn())) revealWelcome();
     }, 4000);
+
+    // гайд установки — один раз при первом входе (если игра ещё не установлена)
+    var seenInstall = true;
+    try { seenInstall = localStorage.getItem("gm_install_seen") === "1"; } catch (e) {}
+    if (!seenInstall && !isStandalone() && !joinCode) {
+      setTimeout(function () {
+        if (!$("#overlay-install").classList.contains("show")) openInstallGuide();
+      }, 1600);
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);
@@ -2139,6 +2330,11 @@
   // отладочный доступ (используется только для тестов)
   window.__DEV = {
     getMap: function (name) { return name ? maps[name] : cur(); },
+    installGuide: function (os) {
+      var lang = I18N.lang() === "en" ? "en" : "ru";
+      installSteps = GUIDE[lang][os] || GUIDE[lang][installOS()];
+      installIdx = 0; renderInstallStep(); $("#overlay-install").classList.add("show");
+    },
     peer: function () { return NET.peer; },
     net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, players: NET.players, myPid: NET.myPid, pending: NET.pending }; },
     state: function () {

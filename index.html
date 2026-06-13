@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#26413a">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoClub">
 <title>Географический клуб · игра по географии</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b4a41'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f1f3ee' stroke-width='3'/%3E%3Cellipse cx='32' cy='32' rx='9' ry='20' fill='none' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Cpath d='M12 32h40M15 22h34M15 42h34' stroke='%23f1f3ee' stroke-width='2.4'/%3E%3Ctext x='32' y='40' font-size='20' text-anchor='middle'%3E%E2%9D%A4%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/maplibre-gl.css">
 <link rel="stylesheet" href="css/style.css">
@@ -64,7 +70,6 @@
     <button id="btn-trophy" class="glass-btn" title="Общий счёт">🏆</button>
     <button class="btn-music glass-btn" title="Музыка">🎵</button>
     <button class="btn-music-next glass-btn" title="Следующий трек">⏭</button>
-    <button id="btn-lang" class="glass-btn" title="Язык / Language">RU</button>
     <button class="btn-mute glass-btn" title="Звуки игры">🔊</button>
     <button id="btn-info" class="glass-btn" title="Как играть">𝒊</button>
   </div>
@@ -152,6 +157,7 @@
     </div>
 
     <div class="online-status" id="prof-status"></div>
+    <button class="btn-big" id="btn-install-app" data-i18n="installAppBtn">📲 Установить как приложение</button>
     <button class="btn-big btn-orange" id="btn-logout" data-i18n="logout">Выйти из аккаунта</button>
     <button class="btn-ghost" id="btn-prof-back" data-i18n="backMenu">‹ Назад в меню</button>
   </div>
@@ -403,6 +409,21 @@
     <button class="btn-big btn-orange" id="btn-net-menu">В меню</button>
   </div>
 </div>
+<!-- Гайд: установка как приложение -->
+<div class="overlay" id="overlay-install">
+  <div class="install-card">
+    <button class="install-close" id="install-close" aria-label="Закрыть">✕</button>
+    <div class="install-illus" id="install-illus"></div>
+    <div class="install-step-n" id="install-step-n"></div>
+    <h3 class="install-title" id="install-title"></h3>
+    <p class="install-text" id="install-text"></p>
+    <div class="install-dots" id="install-dots"></div>
+    <div class="install-nav">
+      <button class="btn-ghost" id="install-back">‹ Назад</button>
+      <button class="btn-big btn-orange" id="install-next">Далее ›</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="overlay-infocard">
   <div class="overlay-card infocard">
     <img id="card-img" alt="">
@@ -447,5 +468,13 @@
 <script src="js/music.js"></script>
 <script src="js/map.js"></script>
 <script src="js/app.js"></script>
+<script>
+  // регистрируем service worker (делает игру устанавливаемой как приложение)
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>
