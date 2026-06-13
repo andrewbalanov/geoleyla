@@ -291,7 +291,9 @@ window.Account = (function () {
     var byMode = mode && mode !== "all";
     function parse(raw) {
       var rows = [];
+      var meUid = (user && profile) ? user.uid : null; // себя возьмём из локального профиля — он всегда свежее
       raw.forEach(function (r) {
+        if (meUid && r.uid === meUid) return; // свой ряд пропускаем из серверных данных, вставим ниже из профиля
         var v = r.v;
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         if (score <= 0) return; // пустые/без очков в этом режиме не показываем
@@ -299,6 +301,15 @@ window.Account = (function () {
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
         rows.push({ uid: r.uid, nick: v.nick, score: score, games: games, photo: v.photo || null, online: on });
       });
+      // свой ряд всегда из локального профиля — мгновенно, без серверной задержки
+      // (баг: source:"server" не отдаёт собственную ещё не подтверждённую запись → «меня нет в списке»)
+      if (meUid) {
+        var ms = byMode ? ((profile.modes && profile.modes[mode]) || 0) : (profile.totalScore || 0);
+        if (ms > 0) {
+          var mg = byMode ? ((profile.modeGames && profile.modeGames[mode]) || 0) : (profile.games || 0);
+          rows.push({ uid: meUid, nick: profile.nick, score: ms, games: mg, photo: profile.photo || null, online: Date.now() });
+        }
+      }
       rows.sort(function (a, b) { return b.score - a.score; });
       return rows.slice(0, 50);
     }
