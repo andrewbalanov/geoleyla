@@ -606,6 +606,12 @@
       else if (name === "terrain") maps[name] = GeoMap.createTerrain(div, TERRAIN_FEATURES, onPick);
       else if (name === "winefr") maps[name] = GeoMap.createWineFrance(div, window.WINEFR_GEO, onPick);
       else if (name === "wineworld") maps[name] = GeoMap.createWineWorld(div, window.WINEWORLD_GEO, onPick);
+      // подсказка при наведении — локализованное имя области
+      var mp = maps[name];
+      if (mp && mp.setTipNamer) {
+        if (name === "world") mp.setTipNamer(function (fid) { var c = fidToCountry[fid]; return c ? (I18N.lang() === "en" ? c.nameEn : c.name) : null; });
+        else mp.setTipNamer(function (fid) { var pr = mp.features[fid] && mp.features[fid].properties; return pr ? (I18N.lang() === "en" ? (pr.orig || pr.name) : (pr.name || pr.orig)) : null; });
+      }
     }
     return maps[name];
   }
@@ -1391,6 +1397,21 @@
     if (best >= 850) Sound.good(); else if (best >= 350) Sound.meh(); else Sound.bad();
   }
 
+  // подпись ключевого (крупнейшего) города области — на карте до конца матча
+  function addCityLabelFor(m, q) {
+    var en = I18N.lang() === "en";
+    if (q.mode === "france" && m.features[q.fid]) {
+      var c = (window.CITY_FR || {})[m.features[q.fid].properties.code];
+      if (c) m.addCityLabel(q.fid, [c.lng, c.lat], c.city);
+    } else if (q.mode === "usa" && m.features[q.fid]) {
+      var cu = (window.CITY_US || {})[m.features[q.fid].properties.orig];
+      if (cu) m.addCityLabel(q.fid, [cu.lng, cu.lat], cu.city);
+    } else if (q.mode === "countries") {
+      var co = fidToCountry[q.fid];
+      if (co && co.clat != null) m.addCityLabel(q.fid, [co.clng, co.clat], en ? co.capitalEn : co.capital);
+    }
+  }
+
   function revealMap(q) {
     var m = cur();
     if (q.kind === "country") {
@@ -1411,6 +1432,7 @@
         if (anyIn) m.markCorrect(capCo.fid); else m.markMissed(capCo.fid);
       }
     }
+    addCityLabelFor(m, q);
     m.addTarget("answer", q.target);
     G.players.forEach(function (p, i) {
       var a = p.answers[G.qIndex];
@@ -1508,9 +1530,11 @@
       var d = q.mode === "usa" ? (I.usa || {})[pr.name] : (I.france || {})[pr.code];
       if (!d) return null;
       var et = q.mode === "usa" ? enInfo("usa", pr.name) : enInfo("france", pr.code);
+      var city = q.mode === "usa" ? (window.CITY_US || {})[pr.orig] : (window.CITY_FR || {})[pr.code];
       return { img: infoImg(d.img),
         title: en ? pr.orig : pr.name,
         sub: en ? pr.name : pr.orig,
+        cap: city ? (T("largestCityCap") + city.city) : null,
         text: et || d.t };
     }
     if (q.hist) {
@@ -2613,11 +2637,6 @@
     },
     peer: function () { return NET.peer; },
     net: function () { return { active: NET.active, isHost: NET.isHost, code: NET.code, players: NET.players, myPid: NET.myPid, pending: NET.pending }; },
-    // dev-хуки для проверки чата без второго пира
-    fakeSession: function () { NET.active = true; NET.isHost = true; NET.myPid = 0; NET.players = [{ pid: 0, name: "Я", ready: false }, { pid: 1, name: "Борис", ready: false }, { pid: 2, name: "Клод", ready: false }]; },
-    simChat: function (pid, name, text) { addChatMsg({ pid: pid, name: name, text: text }); },
-    chatState: function () { return { chat: NET.chat, unread: NET.unread, open: chatOpen, active: NET.active, visible: $("#chat-widget").style.display !== "none", docked: document.body.classList.contains("chat-docked") }; },
-    showChat: function () { updateChatVisibility(); },
     state: function () {
       if (!G) return null;
       return { phase: G.phase, q: G.qIndex, turn: G.turn, mode: G.mode, stage: activeMapName,

@@ -85,6 +85,7 @@
     this.opts = config;
     this.features = config.features;
     this.markers = {};
+    this.cityLabels = {};   // fid -> {lnglat, text} — подписи городов, держатся до конца матча
     this.found = {};
     this.answerFid = null;
     this.clickEnabled = false;
@@ -235,6 +236,27 @@
       if (self.opts.onPick) self.opts.onPick([lng, lat]);
     });
 
+    // всплывающая подсказка с названием уже раскрытой области (зелёной/жёлтой) при наведении
+    var tip = this._tip = document.createElement("div");
+    tip.className = "map-tip";
+    tip.style.display = "none";
+    container.appendChild(tip);
+    map.on("mousemove", function (e) {
+      var fid = self.countryAt([e.lngLat.lng, e.lngLat.lat]);
+      if (fid != null && self.found[fid]) {
+        var nm = (self._tipNamer && self._tipNamer(fid)) || self.featureName(fid);
+        if (nm) {
+          tip.textContent = nm;
+          tip.style.display = "";
+          tip.style.left = e.point.x + "px";
+          tip.style.top = (e.point.y - 12) + "px";
+          return;
+        }
+      }
+      tip.style.display = "none";
+    });
+    map.on("mouseout", function () { tip.style.display = "none"; });
+
     // слои уже в стиле; ждём только применения стиля для setData/setFeatureState
     function tryReady() {
       if (self._ready) return;
@@ -296,6 +318,24 @@
 
   GeoMap.prototype.removeMarker = function (id) {
     if (this.markers[id]) { this.markers[id].remove(); delete this.markers[id]; }
+  };
+
+  // резолвер локализованного имени для всплывающей подсказки (fid -> строка)
+  GeoMap.prototype.setTipNamer = function (fn) { this._tipNamer = fn; };
+
+  // подпись ключевого города области: точка + название, держится до конца матча
+  GeoMap.prototype.addCityLabel = function (fid, lnglat, text) {
+    if (!text || lnglat == null) return;
+    var id = "city" + fid;
+    this.cityLabels[fid] = { lnglat: lnglat, text: text };
+    this.removeMarker(id);
+    var el = document.createElement("div");
+    el.className = "map-citylabel";
+    var dot = document.createElement("span"); dot.className = "mcl-dot";
+    var nm = document.createElement("span"); nm.className = "mcl-name"; nm.textContent = text;
+    el.appendChild(dot); el.appendChild(nm);
+    this.markers[id] = new maplibregl.Marker({ element: el, anchor: "left" })
+      .setLngLat(lnglat).addTo(this.map);
   };
 
   GeoMap.prototype.drawArc = function (id, a, b, color) {
@@ -360,6 +400,9 @@
     var self = this;
     var ids = Object.keys(this.found);
     this.found = {};
+    // подписи городов держатся до конца матча — сбрасываем вместе с found
+    for (var cid in this.markers) { if (cid.indexOf("city") === 0) { this.markers[cid].remove(); delete this.markers[cid]; } }
+    this.cityLabels = {};
     this._whenReady(function () {
       ids.forEach(function (id) {
         self.map.setFeatureState({ source: "regions", id: +id }, { green: false, yellow: false });
@@ -368,8 +411,12 @@
   };
 
   GeoMap.prototype.clearOverlays = function () {
-    for (var id in this.markers) this.markers[id].remove();
-    this.markers = {};
+    var keep = {};   // подписи городов (city*) переживают смену вопроса — до конца матча
+    for (var id in this.markers) {
+      if (id.indexOf("city") === 0) keep[id] = this.markers[id];
+      else this.markers[id].remove();
+    }
+    this.markers = keep;
     this._arcs = [];
     var self = this;
     var wrongs = this._wrongFids || [];
