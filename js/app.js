@@ -11,7 +11,7 @@
     flagsmap:  { icon: "📍", name: "Флаги: на карте", desc: "Чей флаг? Найди страну",            diff: true,  map: "world",  pos: [76, 12], rot: 2,  col: "o", region: true },
     france:    { icon: "🥖", name: "Регионы Франции", desc: "Найди департамент на карте",        diff: false, map: "france", pos: [46, 25], rot: -4, col: "o" },
     usa:       { icon: "🤠", name: "Штаты США",       desc: "Найди штат на карте",               diff: false, map: "usa",    pos: [14, 38], rot: 3,  col: "o" },
-    wineworld: { icon: "🍷", name: "Винные регионы мира", desc: "Легендарные терруары планеты + карточки сомелье", diff: false, map: "world" },
+    wineworld: { icon: "🍷", name: "Винные регионы мира", desc: "Найди винный регион на карте мира + карточки сомелье", diff: false, map: "wineworld" },
     winefrance:{ icon: "🍇", name: "Винные регионы Франции", desc: "Найди винный регион на карте + карточки сомелье", diff: false, map: "winefr" },
     countries: { icon: "🗺️", name: "Страны мира",     desc: "Найди страну на карте",             diff: true,  map: "world",  pos: [52, 56], rot: 2,  col: "o" },
     flagquiz:  { icon: "🚩", name: "Флаги",           desc: "Выбери правильный флаг из трёх",    diff: false, map: null,     pos: [10, 66], rot: -3, col: "y", region: true },
@@ -509,6 +509,7 @@
       else if (name === "usa") maps[name] = GeoMap.createUSA(div, window.USA_TOPO, onPick);
       else if (name === "terrain") maps[name] = GeoMap.createTerrain(div, TERRAIN_FEATURES, onPick);
       else if (name === "winefr") maps[name] = GeoMap.createWineFrance(div, window.WINEFR_GEO, onPick);
+      else if (name === "wineworld") maps[name] = GeoMap.createWineWorld(div, window.WINEWORLD_GEO, onPick);
     }
     return maps[name];
   }
@@ -591,20 +592,19 @@
       img: h.photo || null,
       target: [h.lng, h.lat], r: h.r || 130, reveal: h.name };
   }
-  function qWine(w, mode) {
-    var wi = ((window.INFO || {}).wine || {})[w.img];
-    var img = wi && wi.img ? (/^https?:/.test(wi.img) ? wi.img : "assets/info/" + wi.img) : null;
-    return { kind: "point", mode: mode, title: w.name, chip: "винный регион",
-      sub: w.en, revealSub: w.en, wine: w,
-      img: img,
-      target: [w.lng, w.lat], r: w.r, reveal: w.name };
-  }
   // винный регион Франции как область на карте (fid — индекс в WINEFR_GEO, совпадает с порядком WINE_FRANCE)
   function qWineFrance(w, fid) {
     var m = getMap("winefr");
     return { kind: "country", mode: "winefrance", mapName: "winefr",
       title: w.name, chip: "винный регион", sub: w.en, revealSub: w.en,
       wine: w, fid: fid, target: m.centroidOf(fid), decay: 90, reveal: w.name };
+  }
+  // винный регион мира как область на карте (fid — индекс в WINEWORLD_GEO = порядок WINE_WORLD)
+  function qWineWorld(w, fid) {
+    var m = getMap("wineworld");
+    return { kind: "country", mode: "wineworld", mapName: "wineworld",
+      title: w.name, chip: "винный регион", sub: w.en, revealSub: w.en,
+      wine: w, fid: fid, target: m.centroidOf(fid), decay: 700, reveal: w.name };
   }
   function qRegions(mapName, chip, decay) {
     var m = getMap(mapName);
@@ -640,7 +640,11 @@
     else if (mode === "history") qs = shuffle(window.HISTORY || []).map(qHistory);
     else if (mode === "france") qs = qRegions("france", "департамент", 110);
     else if (mode === "usa") qs = qRegions("usa", "штат", 450);
-    else if (mode === "wineworld") qs = shuffle(window.WINE_WORLD || []).map(function (w) { return qWine(w, "wineworld"); });
+    else if (mode === "wineworld") {
+      getMap("wineworld"); // создать карту регионов до построения вопросов
+      qs = shuffle((window.WINE_WORLD || []).map(function (w, i) { return { w: w, i: i }; }))
+        .map(function (x) { return qWineWorld(x.w, x.i); });
+    }
     else if (mode === "winefrance") {
       getMap("winefr"); // создать карту регионов до построения вопросов
       qs = shuffle((window.WINE_FRANCE || []).map(function (w, i) { return { w: w, i: i }; }))

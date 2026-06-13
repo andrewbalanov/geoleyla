@@ -477,6 +477,20 @@
     });
   };
 
+  // винные регионы мира — те же области-полигоны, что у Франции, но в масштабе планеты
+  GeoMap.createWineWorld = function (container, geojson, onPick) {
+    return new GeoMap(container, {
+      name: "wineworld",
+      features: geojson.features,
+      wineRegions: true,
+      bounds: [[-48, -125], [55, 178]],
+      maxBounds: [[-85, -179.9], [85, 179.9]],
+      minZoom: 1.0,
+      maxZoom: 15,
+      onPick: onPick
+    });
+  };
+
   // Terrain-карта мира (рельеф как в Google Terrain) с областями морей и хребтов
   GeoMap.createTerrain = function (container, areaFeatures, onPick) {
     return new GeoMap(container, {

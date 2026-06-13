@@ -289,8 +289,19 @@ window.I18N = (function () {
     "космос": "space", "событие": "event"
   };
 
+  // Язык по умолчанию — из системы: русская система → ru, любая другая → en.
+  // Сохранённый ранее выбор пользователя имеет приоритет.
   var lang = "ru";
-  try { lang = localStorage.getItem("gm_lang") || "ru"; } catch (e) {}
+  try {
+    var saved = localStorage.getItem("gm_lang");
+    if (saved === "ru" || saved === "en") {
+      lang = saved;
+    } else {
+      var sys = ((navigator.languages && navigator.languages[0]) ||
+                 navigator.language || navigator.userLanguage || "ru").toLowerCase();
+      lang = sys.indexOf("ru") === 0 ? "ru" : "en";
+    }
+  } catch (e) {}
 
   function t(key) {
     var s = (DICT[lang] && DICT[lang][key]) || DICT.ru[key] || key;
