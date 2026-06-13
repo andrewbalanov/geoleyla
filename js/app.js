@@ -76,8 +76,9 @@
     return s;
   }
   function myName() {
-    var el = $("#inp-online-name");
-    var v = (el && el.value || settings.p1 || "Игрок").trim().slice(0, 14);
+    // имя берём из профиля (вход обязателен), запасной вариант — сохранённое
+    var nick = window.Account && Account.isIn() && Account.nick();
+    var v = (nick || settings.p1 || "Игрок").trim().slice(0, 14);
     return v || "Игрок";
   }
   function netSend(obj) {
@@ -110,9 +111,7 @@
     NET.myPid = 0;
     NET.code = makeCode();
     NET.players = [{ pid: 0, name: myName(), photo: myPhotoSmall(), ready: false }];
-    $("#online-host-sec").style.display = "none";
-    $("#online-join-sec").style.display = "none";
-    $("#lobby-sec").style.display = "";
+    setOnlineView("lobby");
     $("#lobby-code").textContent = "· · · ·";
     $("#lobby-status").textContent = T("creating");
     renderLobby();
@@ -278,10 +277,8 @@
       $("#net-drop-text").textContent = text || T("netLost");
       $("#overlay-net").classList.add("show");
     } else {
-      $("#lobby-sec").style.display = "none";
-      $("#online-host-sec").style.display = "";
-      $("#online-join-sec").style.display = "none";
-      $("#online-host-status").textContent = text || T("netLost");
+      setOnlineView("choice");
+      $("#online-choice-status").textContent = text || T("netLost");
     }
     renderMenu();
   }
@@ -306,20 +303,13 @@
     updateOnlineBanner();
   }
   function showLobby() {
-    openOnline();
-    $("#online-host-sec").style.display = "none";
-    $("#online-join-sec").style.display = "none";
-    $("#lobby-sec").style.display = "";
-    if (NET.isHost) {
-      $("#lobby-code").textContent = NET.code.split("").join(" ");
-      var canLink = /^https?:$/.test(location.protocol);
-      $("#btn-copy-invite").style.display = canLink ? "" : "none";
-      $("#share-row").style.display = canLink ? "" : "none";
-    } else {
-      $("#lobby-code").textContent = NET.code.split("").join(" ");
-      $("#btn-copy-invite").style.display = "none";
-      $("#share-row").style.display = "none";
-    }
+    showScreen("screen-online");
+    setOnlineView("lobby");
+    $("#lobby-code").textContent = NET.code.split("").join(" ");
+    // приглашения показываем только хосту (у гостя комната уже есть)
+    var canLink = NET.isHost && /^https?:$/.test(location.protocol);
+    $("#btn-copy-invite").style.display = canLink ? "" : "none";
+    $("#share-row").style.display = canLink ? "" : "none";
     renderLobby();
   }
   function renderLobby() {
@@ -749,13 +739,17 @@
     $("#btn-leave-net").onclick = leaveOnlineSession;
   }
 
+  // переключение видов онлайн-экрана: "choice" (выбор) / "join" (ввод кода) / "lobby"
+  function setOnlineView(view) {
+    $("#online-choice").style.display = view === "choice" ? "" : "none";
+    $("#online-join-sec").style.display = view === "join" ? "" : "none";
+    $("#lobby-sec").style.display = view === "lobby" ? "" : "none";
+  }
   function openOnline() {
-    $("#inp-online-name").value = settings.p1 || "Лейла";
-    $("#online-host-sec").style.display = "none";
-    $("#online-join-sec").style.display = "none";
-    $("#online-host-status").textContent = "";
+    $("#online-choice-status").textContent = "";
     $("#online-join-status").textContent = "";
     $("#inp-join-code").value = "";
+    setOnlineView("choice");
     showScreen("screen-online");
   }
 
@@ -1709,7 +1703,7 @@
   }
   function goJoin(code) {
     openOnline();
-    $("#online-join-sec").style.display = "";
+    setOnlineView("join");
     $("#inp-join-code").value = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
     $("#online-join-status").textContent = T("invited");
     setTimeout(joinRoom, 500);
@@ -1940,9 +1934,14 @@
       hostRoom();
     };
     $("#btn-show-join").onclick = function () {
-      $("#online-join-sec").style.display = "";
-      $("#online-host-sec").style.display = "none";
+      $("#online-join-status").textContent = "";
+      $("#inp-join-code").value = "";
+      setOnlineView("join");
       $("#inp-join-code").focus();
+    };
+    $("#btn-join-back").onclick = function () {
+      $("#online-join-status").textContent = "";
+      setOnlineView("choice");
     };
     $("#btn-join-room").onclick = function () {
       settings.p1 = myName(); store("gm_settings", settings);
@@ -1972,7 +1971,7 @@
       if (!NET.code) return;
       var link = location.origin + location.pathname + "?join=" + NET.code;
       var done = function () {
-        $("#online-host-status").textContent = T("inviteCopied");
+        $("#lobby-status").textContent = T("inviteCopied");
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(done, function () { window.prompt("Скопируй ссылку:", link); });

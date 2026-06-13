@@ -195,21 +195,16 @@
 <!-- ===================== ОНЛАЙН-ДУЭЛЬ ===================== -->
 <div class="screen board" id="screen-online">
   <div class="setup-inner">
-    <h2 data-i18n="onlineTitle">🌐 Онлайн-дуэль</h2>
-    <p class="online-hint" data-i18n="onlineHint">Играйте вдвоём с разных компьютеров и телефонов. Один создаёт комнату и говорит код, второй вводит код — и вперёд!</p>
+    <h2 data-i18n="onlineTitle">👥 Многопользовательский режим</h2>
 
-    <div class="setup-row">
-      <label data-i18n="yourName">Твоё имя</label>
-      <input id="inp-online-name" maxlength="14" class="p1" placeholder="Лейла">
-    </div>
-
-    <div class="online-actions">
-      <button class="btn-big btn-orange" id="btn-host-room" data-i18n="createRoom">Создать комнату</button>
-      <button class="btn-big" id="btn-show-join" data-i18n="haveCode">У меня есть код</button>
-    </div>
-
-    <div id="online-host-sec" style="display:none">
-      <div id="online-host-status" class="online-status"></div>
+    <!-- Вид 1: выбор действия -->
+    <div id="online-choice">
+      <p class="online-hint" data-i18n="onlineHint">Играйте до 4 игроков с разных компьютеров и телефонов. Создайте свою комнату или подключитесь к уже созданной.</p>
+      <div class="online-actions-col">
+        <button class="btn-big btn-orange" id="btn-host-room" data-i18n="createRoom">🎮 Создать комнату</button>
+        <button class="btn-big" id="btn-show-join" data-i18n="joinRoomBtn">🔗 Подключиться к комнате</button>
+      </div>
+      <div class="online-status" id="online-choice-status"></div>
     </div>
 
     <!-- Комната ожидания: список игроков, готовность, кик -->
@@ -237,12 +232,14 @@
     </div>
 
     <div id="online-join-sec" style="display:none">
+      <p class="online-hint" data-i18n="joinHint">Введите код комнаты, который вам прислали:</p>
       <div class="setup-row">
         <label data-i18n="roomCodeLabel">Код комнаты</label>
         <input id="inp-join-code" maxlength="4" class="code-input" placeholder="A B C D" autocomplete="off">
       </div>
       <button class="btn-big btn-orange" id="btn-join-room" data-i18n="connect">Подключиться</button>
       <div id="online-join-status" class="online-status"></div>
+      <button class="btn-ghost" id="btn-join-back" data-i18n="backChoice">‹ Назад</button>
     </div>
 
     <button class="btn-ghost" id="btn-online-back" data-i18n="backMenu">‹ Назад в меню</button>

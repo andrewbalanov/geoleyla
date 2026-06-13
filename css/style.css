@@ -495,8 +495,9 @@ img.av {
 }
 .setup-inner h2 {
   margin: 0 0 4px; font-family: var(--serif); font-weight: 900;
-  font-size: 30px; text-align: center; color: var(--cream);
+  font-size: clamp(23px, 6.4vw, 30px); text-align: center; color: var(--cream);
   text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  overflow-wrap: break-word; max-width: 100%;
 }
 .setup-row { display: flex; flex-direction: column; gap: 7px; }
 .setup-row label {
@@ -518,6 +519,12 @@ img.av {
 }
 .online-actions { display: flex; gap: 10px; }
 .online-actions .btn-big { flex: 1; padding: 13px 8px; font-size: 16px; }
+/* экран выбора: создать / подключиться — крупные кнопки в столбик */
+#online-choice { display: flex; flex-direction: column; gap: 13px; }
+.online-actions-col { display: flex; flex-direction: column; gap: 11px; }
+.online-actions-col .btn-big { padding: 16px; font-size: 17px; }
+#online-join-sec { display: flex; flex-direction: column; gap: 11px; }
+#online-join-sec #btn-join-back { margin-top: 2px; }
 .online-code-label { text-align: center; color: var(--cream-dim); font-size: 14px; font-weight: 700; margin-top: 6px; }
 .online-code {
   text-align: center; font-family: var(--serif); font-weight: 900;
