@@ -113,6 +113,20 @@
     // wrong — куда указал ошибочно, sel — выбор до подтверждения
     // pcolor — индивидуальный цвет игрока (мультиплеер): заливка области в его цвет
     var PC = ["coalesce", ["feature-state", "pcolor"], "#888"];
+    // мир: постоянные границы стран из наших полигонов — рисуем ПЕРВЫМИ (под заливкой), чтобы
+    // на ответе зелёная/жёлтая заливка ложилась поверх. Линии в пикселях → видны на любом зуме и
+    // на мобильном (раньше границы шли только из векторных тайлов и на мелком зуме/мобайле пропадали).
+    if (config.worldBorders) {
+      style.layers.push({
+        id: "regions-base-line", type: "line", source: "regions",
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": "#3c4a44",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 0.5, 0.9, 3, 1.3, 6, 1.9, 12, 2.8],
+          "line-opacity": 0.9
+        }
+      });
+    }
     if (config.wineRegions) {
       // винные регионы: каждый окрашен своим приглушённым цветом (явно отмечен),
       // на ответе — зелёный/жёлтый/красный (или цвет игрока в мультиплеере)
@@ -241,10 +255,7 @@
     map.scrollZoom.setWheelZoomRate(1 / 140);
     map.scrollZoom.setZoomRate(1 / 90);
     if (config.maxBounds) map.setMaxBounds(llb(config.maxBounds));
-    map.addControl(new maplibregl.AttributionControl({
-      compact: true,
-      customAttribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
-    }), "bottom-right");
+    // Без значка атрибуции на карте (мешал в углу). Кредиты карты вынесены в окно «Как играть».
 
     // если карта создана в скрытом/нулевом контейнере — перефитить вид при первом реальном размере
     this._zeroInit = !container.clientWidth || !container.clientHeight;
@@ -526,6 +537,7 @@
       name: "world",
       features: fc.features,
       regions: false,
+      worldBorders: true,   // всегда видимые границы стран из наших данных (не зависят от зума/тайлов)
       bounds: [[-54, -170], [73, 170]],
       maxBounds: [[-85, -179.9], [85, 179.9]],
       minZoom: 1.0,
