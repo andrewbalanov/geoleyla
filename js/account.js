@@ -308,6 +308,16 @@ window.Account = (function () {
   function displayNick(uid, v) {
     return (v && v.nick) || NICK_OVERRIDE_UID[uid] || (v && NICK_OVERRIDE_EMAIL[(v.email || "").toLowerCase()]) || null;
   }
+  // показываем всех реальных игроков; прячем только мусор: тестовые/служебные аккаунты,
+  // удалённые и записи без настоящего имени (заглушки)
+  var JUNK_NICK = { "—": 1, "(удалён)": 1, "(deleted)": 1 };
+  function isJunkAccount(uid, v) {
+    if (SKIP_UIDS[uid]) return true;
+    var email = ((v && v.email) || "").toLowerCase();
+    if (/@example\.com$|@geoleyla-game\.dev$/.test(email)) return true;   // мои тестовые домены
+    var nk = displayNick(uid, v);
+    return !nk || !!JUNK_NICK[nk];
+  }
   // mode: null/"all" — общий рейтинг (totalScore); иначе — очки конкретного режима (modes[mode])
   // кэш сырых данных рейтинга: одно чтение базы на сессию просмотра, переключение
   // режимов считаем у себя (раньше каждый таб заново тянул 300 доков и иногда отваливался)
@@ -330,33 +340,32 @@ window.Account = (function () {
       var meServer = null;   // мой ряд из серверных данных — запасной, если локальный профиль пуст
       raw.forEach(function (r) {
         var v = r.v;
+        if (isJunkAccount(r.uid, v)) return;            // тест/служебные/удалённые/без имени — не показываем
         var score = byMode ? ((v.modes && v.modes[mode]) || 0) : (v.totalScore || 0);
         var games = byMode ? ((v.modeGames && v.modeGames[mode]) || 0) : (v.games || 0);
         var on = v.online && v.online.toMillis ? v.online.toMillis() : (typeof v.online === "number" ? v.online : 0);
         var row = { uid: r.uid, nick: displayNick(r.uid, v), score: score, games: games, photo: v.photo || null, online: on };
         if (meUid && r.uid === meUid) { meServer = row; return; }   // себя добавим ниже — лучшее из источников
-        if (score <= 0) return; // пустые/без очков в этом режиме не показываем
-        rows.push(row);
+        rows.push(row);                                  // показываем всех зарегистрированных, даже с 0 очков/0 игр
       });
-      // свой ряд: берём источник с бОльшим счётом, чтобы пустой/устаревший локальный профиль
-      // (или ещё не подтверждённая серверная запись) не прятал меня из таблицы
-      if (meUid) {
-        var lp = profile ? (byMode ? ((profile.modes && profile.modes[mode]) || 0) : (profile.totalScore || 0)) : 0;
+      // свой ряд всегда (даже 0/0): лучшее из локального профиля и серверных данных
+      if (meUid && profile) {
+        var lp = byMode ? ((profile.modes && profile.modes[mode]) || 0) : (profile.totalScore || 0);
         var sp = meServer ? meServer.score : 0;
-        if (lp >= sp && lp > 0) {
+        if (!meServer || lp >= sp) {
           rows.push({ uid: meUid,
             nick: profile.nick || (meServer && meServer.nick),
             score: lp,
             games: byMode ? ((profile.modeGames && profile.modeGames[mode]) || 0) : (profile.games || 0),
             photo: profile.photo || (meServer && meServer.photo) || null,
             online: Date.now() });
-        } else if (meServer && sp > 0) {
-          meServer.online = Date.now();
-          rows.push(meServer);
-        }
-      }
-      rows.sort(function (a, b) { return b.score - a.score; });
-      return rows.slice(0, 50);
+        } else { meServer.online = Date.now(); rows.push(meServer); }
+      } else if (meServer) { meServer.online = Date.now(); rows.push(meServer); }
+      // сортировка: очки ↓, затем игры ↓, затем по имени (стабильно для нулевых)
+      rows.sort(function (a, b) {
+        return (b.score - a.score) || (b.games - a.games) || (a.nick || "").localeCompare(b.nick || "");
+      });
+      return rows.slice(0, 100);
     }
     if (lbCache && Date.now() - lbCacheTs < 60000) return Promise.resolve(parse(lbCache)); // свежий кэш — без обращения к базе
     return lbFetch().catch(function () { return lbFetch(); }).then(parse).catch(function (e) {
