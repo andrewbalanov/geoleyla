@@ -353,7 +353,7 @@ button:disabled { opacity: 0.55; cursor: default; }
 }
 #leaders-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.02); }
 #leaders-table .lb-rank { width: 58px; text-align: center; color: var(--cream-dim); font-family: var(--serif); font-weight: 900; white-space: nowrap; }
-#leaders-table td.lb-player { overflow: hidden; }
+#leaders-table td.lb-player { overflow: visible; }
 #leaders-table .lb-player-in { display: flex; align-items: center; gap: 10px; min-width: 0; }
 #leaders-table .lb-score { width: 96px; text-align: right; color: var(--gold-soft); font-weight: 900; font-size: 16px; white-space: nowrap; }
 #leaders-table th.lb-score { text-align: right; }
@@ -1272,12 +1272,13 @@ img.av {
 .confirm-cancel:hover { background: rgba(255, 255, 255, 0.15); }
 
 /* ---------- Онлайн-статус и вызов на дуэль в рейтинге ---------- */
-.lb-dot {
-  display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #45d063;
-  box-shadow: 0 0 0 2px rgba(69, 208, 99, 0.25); margin: 0 6px; vertical-align: middle;
-  animation: lbPulse 1.7s ease-in-out infinite;
+/* онлайн-игрок: круглое фото подсвечено зелёным пульсирующим кольцом по контуру (вместо точки) */
+.on-ring { border-color: #2fd66b !important; animation: lbOnline 1.5s ease-in-out infinite; }
+@keyframes lbOnline {
+  0%   { box-shadow: 0 0 0 2px #2fd66b, 0 0 0 0 rgba(47, 214, 107, 0.6); }
+  70%  { box-shadow: 0 0 0 2px #2fd66b, 0 0 0 8px rgba(47, 214, 107, 0); }
+  100% { box-shadow: 0 0 0 2px #2fd66b, 0 0 0 0 rgba(47, 214, 107, 0); }
 }
-@keyframes lbPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 .lb-nick { vertical-align: middle; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lb-duel {
   margin-left: 8px; padding: 4px 11px; border-radius: 999px; vertical-align: middle; white-space: nowrap;
